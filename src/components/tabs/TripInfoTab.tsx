@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { Trip, UserSession } from '../../types';
 import { generateId, createPersonalItems } from '../../store';
+import { ConfirmSheet } from '../ConfirmSheet';
 import {
   Plane,
   Bus,
@@ -43,6 +44,7 @@ export function TripInfoTab({ trip, session, onUpdate }: Props) {
   const [personName, setPersonName] = useState('');
   const [personPhone, setPersonPhone] = useState('');
   const [copied, setCopied] = useState(false);
+  const [confirmRemoveId, setConfirmRemoveId] = useState<string | null>(null);
 
   function copyConfirmation() {
     navigator.clipboard.writeText('HM2TRCRKF8');
@@ -524,7 +526,7 @@ export function TripInfoTab({ trip, session, onUpdate }: Props) {
                       </div>
                     </div>
                     <button
-                      onClick={() => removePerson(person.id)}
+                      onClick={() => setConfirmRemoveId(person.id)}
                       className="text-ios-gray4 active:text-ios-red p-1 transition-colors"
                     >
                       <X size={16} />
@@ -563,6 +565,16 @@ export function TripInfoTab({ trip, session, onUpdate }: Props) {
           </div>
         )}
       </div>
+
+      {confirmRemoveId && (
+        <ConfirmSheet
+          title="להסיר את המשתתף?"
+          message="ההוצאות שלו יישארו אבל הוא לא יופיע ברשימה"
+          confirmLabel="הסר"
+          onConfirm={() => { removePerson(confirmRemoveId); setConfirmRemoveId(null); }}
+          onCancel={() => setConfirmRemoveId(null)}
+        />
+      )}
     </div>
   );
 }

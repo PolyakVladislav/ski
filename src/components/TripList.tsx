@@ -3,6 +3,7 @@ import type { Trip, UserSession } from '../types';
 import { generateId, createDefaultSharedItems } from '../store';
 import { Plus, Trash2, Users, Calendar, Mountain, LogOut, Share2, Sun, Moon } from 'lucide-react';
 import { useTheme } from '../useTheme';
+import { ConfirmSheet } from './ConfirmSheet';
 
 interface Props {
   trips: Trip[];
@@ -17,6 +18,7 @@ export function TripList({ trips, session, onAdd, onSelect, onDelete, onLogout }
   const [showForm, setShowForm] = useState(false);
   const [name, setName] = useState('');
   const { theme, toggle: toggleTheme } = useTheme();
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
   function handleCreate() {
     if (!name.trim()) return;
@@ -78,8 +80,6 @@ export function TripList({ trips, session, onAdd, onSelect, onDelete, onLogout }
 
         {trips.map((trip, idx) => {
           const days = daysBetween(trip.startDate, trip.endDate);
-          const packed = trip.packingItems.filter((i) => i.checked).length;
-          const totalItems = trip.packingItems.length;
           const myPerson = trip.people.find((p) => p.phone === session.phone);
 
           return (
@@ -110,19 +110,6 @@ export function TripList({ trips, session, onAdd, onSelect, onDelete, onLogout }
                       אתה משתתף
                     </div>
                   )}
-                  {totalItems > 0 && (
-                    <div className="mt-2 flex items-center gap-2">
-                      <div className="flex-1 bg-ios-gray5 rounded-full h-1 overflow-hidden">
-                        <div
-                          className="h-full bg-ios-blue rounded-full transition-all duration-500"
-                          style={{ width: `${(packed / totalItems) * 100}%` }}
-                        />
-                      </div>
-                      <span className="text-[11px] text-ios-gray" dir="ltr">
-                        {packed}/{totalItems}
-                      </span>
-                    </div>
-                  )}
                 </div>
                 <div className="flex flex-col gap-0.5">
                   <button
@@ -138,7 +125,7 @@ export function TripList({ trips, session, onAdd, onSelect, onDelete, onLogout }
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      onDelete(trip.id);
+                      setConfirmDeleteId(trip.id);
                     }}
                     className="p-2 text-ios-gray3 active:text-ios-red rounded-full transition-colors"
                   >
@@ -185,6 +172,15 @@ export function TripList({ trips, session, onAdd, onSelect, onDelete, onLogout }
       >
         <Plus size={28} strokeWidth={2.5} />
       </button>
+
+      {confirmDeleteId && (
+        <ConfirmSheet
+          title="למחוק את הטיול?"
+          message="כל ההוצאות והפרטים יימחקו לצמיתות"
+          onConfirm={() => { onDelete(confirmDeleteId); setConfirmDeleteId(null); }}
+          onCancel={() => setConfirmDeleteId(null)}
+        />
+      )}
     </div>
   );
 }

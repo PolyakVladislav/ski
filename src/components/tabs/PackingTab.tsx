@@ -1,7 +1,9 @@
 import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import type { Trip, PackingItem, UserSession } from '../../types';
 import { generateId } from '../../store';
-import { Plus, ChevronDown, Users, User, Package } from 'lucide-react';
+import { Plus, ChevronDown, Users, User, Package, X } from 'lucide-react';
+import { SwipeRow } from '../SwipeRow';
 
 interface Props {
   trip: Trip;
@@ -96,7 +98,9 @@ export function PackingTab({ trip, session, onUpdate }: Props) {
     };
     onUpdate({ ...trip, packingItems: [...trip.packingItems, newItem] });
     setNewItemName('');
+    setNewItemCategory('');
     setShowForm(false);
+    setAddError('');
   }
 
   function toggleCategory(cat: string) {
@@ -123,7 +127,7 @@ export function PackingTab({ trip, session, onUpdate }: Props) {
   }
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-3 pb-20">
       {/* iOS Segmented Control */}
       <div className="bg-ios-gray5 rounded-[10px] p-[3px] flex animate-fade-in-up">
         <button
@@ -247,10 +251,12 @@ export function PackingTab({ trip, session, onUpdate }: Props) {
                   return (
                     <div
                       key={item.id}
-                      className={`flex items-center gap-3 px-4 py-3 transition-colors duration-150 ${
-                        item.checked ? 'bg-ios-gray6/50' : ''
-                      } border-t border-ios-separator`}
+                      className="border-t border-ios-separator"
                     >
+                    <SwipeRow onDelete={() => removeItem(item.id)}>
+                    <div className={`flex items-center gap-3 px-4 py-3 transition-colors duration-150 ${
+                        item.checked ? 'bg-ios-gray6/50' : ''
+                      }`}>
                       <button
                         onClick={() => toggleItem(item.id)}
                         className={`w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 transition-all duration-200 ${
@@ -315,12 +321,8 @@ export function PackingTab({ trip, session, onUpdate }: Props) {
                           </button>
                         </div>
                       )}
-                      <button
-                        onClick={() => removeItem(item.id)}
-                        className="text-ios-gray4 active:text-ios-red text-lg px-1 transition-colors duration-150"
-                      >
-                        ×
-                      </button>
+                    </div>
+                    </SwipeRow>
                     </div>
                   );
                 })}
@@ -330,75 +332,110 @@ export function PackingTab({ trip, session, onUpdate }: Props) {
         );
       })}
 
-      {/* Add item form */}
-      {showForm ? (
-        <div className="ios-card p-4 space-y-3 animate-scale-in">
-          <div className="text-[13px] font-medium text-ios-gray mb-1">
-            {viewMode === 'mine'
-              ? 'הוספה לרשימה האישית'
-              : 'הוספה לרשימה הכללית'}
-          </div>
-          <select
-            value={newItemCategory}
-            onChange={(e) => { setNewItemCategory(e.target.value); setAddError(''); }}
-            className="w-full bg-ios-gray6 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-ios-blue/30 transition-all"
+      {/* Floating Add Button */}
+      <button
+        onClick={() => { setShowForm(true); setAddError(''); setNewItemName(''); setNewItemCategory(''); }}
+        className="fixed z-40 left-5 w-14 h-14 bg-ios-blue text-white rounded-full shadow-lg shadow-ios-blue/30 flex items-center justify-center active:scale-90 transition-transform fab-position"
+      >
+        <Plus size={28} strokeWidth={2.5} />
+      </button>
+
+      {/* Add Item Modal */}
+      {showForm && createPortal(
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-5 animate-fade-in" onClick={() => { setShowForm(false); setAddError(''); }}>
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
+          <div
+            className="relative w-full max-w-sm bg-ios-bg rounded-2xl shadow-2xl animate-scale-in overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
           >
-            <option value="">בחר קטגוריה...</option>
-            {[...new Set(trip.packingItems.map((i) => i.category))].map((c) => (
-              <option key={c} value={c}>{c}</option>
-            ))}
-            <option value="__new__">+ קטגוריה חדשה</option>
-          </select>
-          {newItemCategory === '__new__' && (
-            <input
-              type="text"
-              placeholder="שם הקטגוריה..."
-              onChange={(e) => setNewItemCategory(e.target.value)}
-              className="w-full bg-ios-gray6 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-ios-blue/30 placeholder:text-ios-gray3 animate-slide-down"
-            />
-          )}
-          <input
-            type="text"
-            value={newItemName}
-            onChange={(e) => { setNewItemName(e.target.value); setAddError(''); }}
-            onKeyDown={(e) => e.key === 'Enter' && addItem()}
-            placeholder="שם הפריט..."
-            autoFocus
-            className="w-full bg-ios-gray6 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-ios-blue/30 placeholder:text-ios-gray3"
-          />
-          {addError && (
-            <div className="text-center text-sm text-ios-red font-medium animate-scale-in">
-              {addError}
+            <div className="px-5 pt-4 pb-2 flex items-center justify-between border-b border-ios-separator">
+              <h2 className="text-[17px] font-bold text-ios-label">
+                {viewMode === 'mine' ? 'הוספה לרשימה האישית' : 'הוספה לרשימה הכללית'}
+              </h2>
+              <button
+                onClick={() => { setShowForm(false); setAddError(''); }}
+                className="w-8 h-8 bg-ios-gray5 rounded-full flex items-center justify-center active:bg-ios-gray4 transition-colors"
+              >
+                <X size={16} className="text-ios-gray" />
+              </button>
             </div>
-          )}
-          <div className="flex gap-2">
-            <button
-              onClick={addItem}
-              className="flex-1 bg-ios-blue text-white font-semibold py-3 rounded-xl active:opacity-80 transition-opacity"
-            >
-              הוסף
-            </button>
-            <button
-              onClick={() => {
-                setShowForm(false);
-                setNewItemName('');
-                setNewItemCategory('');
-                setAddError('');
-              }}
-              className="px-4 py-3 text-ios-blue rounded-xl active:bg-ios-gray6 transition-colors"
-            >
-              ביטול
-            </button>
+
+            <div className="p-5 space-y-4">
+              {/* List type indicator */}
+              <div className={`flex items-center gap-2 px-3 py-2.5 rounded-xl text-[13px] font-medium ${
+                viewMode === 'mine'
+                  ? 'bg-ios-blue/10 text-ios-blue'
+                  : 'bg-ios-green/10 text-ios-green'
+              }`}>
+                {viewMode === 'mine' ? <User size={16} /> : <Users size={16} />}
+                {viewMode === 'mine' ? 'רשימה אישית' : 'רשימה כללית'}
+              </div>
+
+              {/* Category select */}
+              <div>
+                <label className="text-[13px] font-medium text-ios-gray block mb-1.5">קטגוריה</label>
+                <select
+                  value={newItemCategory}
+                  onChange={(e) => { setNewItemCategory(e.target.value); setAddError(''); }}
+                  className="w-full bg-ios-gray6 rounded-xl px-4 py-3.5 focus:outline-none focus:ring-2 focus:ring-ios-blue/30 transition-all text-[15px]"
+                >
+                  <option value="">בחר קטגוריה...</option>
+                  {[...new Set(trip.packingItems.map((i) => i.category))].map((c) => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                  <option value="__new__">+ קטגוריה חדשה</option>
+                </select>
+              </div>
+
+              {newItemCategory === '__new__' && (
+                <div className="animate-slide-down">
+                  <label className="text-[13px] font-medium text-ios-gray block mb-1.5">שם קטגוריה חדשה</label>
+                  <input
+                    type="text"
+                    placeholder="שם הקטגוריה..."
+                    autoFocus
+                    onChange={(e) => setNewItemCategory(e.target.value)}
+                    className="w-full bg-ios-gray6 rounded-xl px-4 py-3.5 focus:outline-none focus:ring-2 focus:ring-ios-blue/30 placeholder:text-ios-gray3 text-[15px]"
+                  />
+                </div>
+              )}
+
+              {/* Item name */}
+              <div>
+                <label className="text-[13px] font-medium text-ios-gray block mb-1.5">שם הפריט</label>
+                <input
+                  type="text"
+                  value={newItemName}
+                  onChange={(e) => { setNewItemName(e.target.value); setAddError(''); }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      addItem();
+                    }
+                  }}
+                  placeholder="למשל: גרביים, מגבת..."
+                  autoFocus={newItemCategory !== '__new__'}
+                  className="w-full bg-ios-gray6 rounded-xl px-4 py-3.5 focus:outline-none focus:ring-2 focus:ring-ios-blue/30 placeholder:text-ios-gray3 text-[15px]"
+                />
+              </div>
+
+              {addError && (
+                <div className="text-center text-[13px] text-ios-red font-medium animate-scale-in">
+                  {addError}
+                </div>
+              )}
+            </div>
+
+            <div className="px-5 py-3 border-t border-ios-separator bg-ios-bg">
+              <button
+                onClick={addItem}
+                className="w-full bg-ios-blue text-white font-semibold py-3.5 rounded-xl active:opacity-80 transition-opacity text-[15px]"
+              >
+                הוסף פריט
+              </button>
+            </div>
           </div>
-        </div>
-      ) : (
-        <button
-          onClick={() => setShowForm(true)}
-          className="w-full flex items-center justify-center gap-2 ios-card p-3.5 text-ios-blue font-semibold text-[15px] active:bg-ios-gray6 transition-colors"
-        >
-          <Plus size={18} />
-          הוסף פריט
-        </button>
+        </div>,
+        document.body
       )}
     </div>
   );

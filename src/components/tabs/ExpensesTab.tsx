@@ -2,6 +2,9 @@ import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import type { Trip, Expense, UserSession } from '../../types';
 import { generateId } from '../../store';
+import { ExpenseCharts } from '../ExpenseCharts';
+import { SwipeRow } from '../SwipeRow';
+import { ConfirmSheet } from '../ConfirmSheet';
 import {
   Plus,
   Trash2,
@@ -230,6 +233,7 @@ export function ExpensesTab({ trip, session, onUpdate }: Props) {
   const [editPaidBy, setEditPaidBy] = useState<string[]>([]);
   const [editSplit, setEditSplit] = useState<string[]>([]);
   const [liveRates, setLiveRates] = useState<Rates>({ eurIls: DEFAULT_EUR_ILS, usdIls: DEFAULT_USD_ILS });
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
 
   useEffect(() => {
     fetch('https://open.er-api.com/v6/latest/EUR')
@@ -270,24 +274,6 @@ export function ExpensesTab({ trip, session, onUpdate }: Props) {
     return trip.people.find((p) => p.id === id)?.name ?? '?';
   }
 
-
-  function getPersonSpending(personId: string): {
-    paidEur: number;
-    owesEur: number;
-  } {
-    let paidEur = 0;
-    let owesEur = 0;
-    for (const exp of trip.expenses) {
-      const r = getExpRates(exp, liveRates);
-      const amtEur = toEur(exp.amount, exp.currency ?? 'ILS', r);
-      const payers = getPayers(exp.paidBy);
-      if (payers.includes(personId)) paidEur += amtEur / payers.length;
-      if (exp.splitBetween.includes(personId)) {
-        owesEur += amtEur / exp.splitBetween.length;
-      }
-    }
-    return { paidEur: Math.round(paidEur), owesEur: Math.round(owesEur) };
-  }
 
   function toggleSplit(id: string) {
     setSplitBetween((prev) =>
@@ -530,39 +516,8 @@ export function ExpensesTab({ trip, session, onUpdate }: Props) {
         </div>
       </div>
 
-      {/* 2. Per-person breakdown */}
-      {trip.expenses.length > 0 && (
-        <div className="ios-card overflow-hidden animate-fade-in-up stagger-2">
-          {trip.people.map((person, idx) => {
-            const { owesEur } = getPersonSpending(person.id);
-            return (
-              <div
-                key={person.id}
-                className={`flex items-center justify-between px-4 py-3 ${idx > 0 ? 'border-t border-ios-separator' : ''}`}
-              >
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <div
-                    className={`w-7 h-7 rounded-full bg-gradient-to-br ${
-                      AVATAR_COLORS[idx % AVATAR_COLORS.length]
-                    } flex items-center justify-center text-white text-[11px] font-bold shrink-0`}
-                  >
-                    {person.name.charAt(0)}
-                  </div>
-                  <span className="text-[15px] text-ios-label truncate">{person.name}</span>
-                </div>
-                <div className="text-left shrink-0">
-                  <div className="text-[15px] font-semibold text-ios-label" dir="ltr">
-                    {fmtEur(owesEur)}
-                  </div>
-                  <div className="text-[11px] text-ios-gray" dir="ltr">
-                    {fmtIls(owesEur * liveRates.eurIls)}
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
+      {/* Charts */}
+      <ExpenseCharts trip={trip} rates={liveRates} />
 
       {/* 3. Fixed Costs */}
       <div className="animate-fade-in-up stagger-3">
@@ -901,6 +856,7 @@ export function ExpensesTab({ trip, session, onUpdate }: Props) {
 
               return (
                 <div key={exp.id} className={i > 0 ? 'border-t border-ios-separator' : ''}>
+                  <SwipeRow onDelete={() => setConfirmDelete(exp.id)}>
                   {/* Compact row */}
                   <button
                     onClick={() => setExpandedPurchase(isOpen ? null : exp.id)}
@@ -1051,11 +1007,21 @@ export function ExpensesTab({ trip, session, onUpdate }: Props) {
                       )}
                     </div>
                   )}
+                  </SwipeRow>
                 </div>
               );
             })}
           </div>
         </div>
+      )}
+
+      {confirmDelete && (
+        <ConfirmSheet
+          title="למחוק את ההוצאה?"
+          message="הפעולה הזאת לא ניתנת לביטול"
+          onConfirm={() => { removeExpense(confirmDelete); setConfirmDelete(null); }}
+          onCancel={() => setConfirmDelete(null)}
+        />
       )}
 
       <div className="text-center pt-2 pb-4">

@@ -27,6 +27,17 @@ export interface Expense {
   rateUsdIls?: number;
 }
 
+export interface Restaurant {
+  id: string;
+  name: string;
+  cuisine: string;
+  rating: number;
+  priceLevel: 1 | 2 | 3;
+  notes: string;
+  addedBy: string;
+  date: string;
+}
+
 export interface Trip {
   id: string;
   name: string;
@@ -35,9 +46,10 @@ export interface Trip {
   people: Person[];
   packingItems: PackingItem[];
   expenses: Expense[];
+  restaurants?: Restaurant[];
 }
 
-export type TabId = 'trip' | 'packing' | 'expenses' | 'resort';
+export type TabId = 'trip' | 'packing' | 'expenses' | 'resort' | 'food';
 
 export interface UserSession {
   phone: string;

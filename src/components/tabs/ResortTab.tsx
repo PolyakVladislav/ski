@@ -337,18 +337,14 @@ export function ResortTab() {
         <p className="text-[13px] font-medium text-ios-gray px-1 pb-2">מפת מסלולים</p>
         <button
           onClick={() => setShowMap(true)}
-          className="block w-full ios-card overflow-hidden active:opacity-90 transition-opacity text-right"
+          className="block w-full ios-card overflow-hidden active:scale-[0.98] transition-all text-right"
         >
           <div className="relative w-full h-48 bg-ios-gray6 overflow-hidden">
-            <object
-              data="/plan-3-vallees-25.26-bd.pdf"
-              type="application/pdf"
-              className="w-[200%] h-[200%] origin-top-left scale-50 pointer-events-none"
-            >
-              <div className="w-full h-full flex items-center justify-center">
-                <MapPin size={32} className="text-ios-gray3" />
-              </div>
-            </object>
+            <img
+              src="/piste-map-preview.png"
+              alt="3 Vallées Piste Map"
+              className="w-full h-full object-cover"
+            />
             <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent" />
             <div className="absolute bottom-2 left-2 bg-black/50 backdrop-blur-sm text-white text-[11px] px-2 py-1 rounded-full flex items-center gap-1">
               <ZoomIn size={12} />
@@ -357,8 +353,8 @@ export function ResortTab() {
           </div>
           <div className="px-4 py-3 flex items-center justify-between">
             <div>
-              <div className="text-[15px] font-medium text-ios-label">3 Vallées Piste Map</div>
-              <div className="text-[13px] text-ios-gray">2025–2026</div>
+              <div className="text-[15px] font-medium text-ios-label">מפת מסלולים 3 Vallées</div>
+              <div className="text-[13px] text-ios-gray">עונה 2025–2026 · PDF</div>
             </div>
             <ZoomIn size={16} className="text-ios-gray3" />
           </div>

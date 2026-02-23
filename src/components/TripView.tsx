@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { Trip, TabId, UserSession } from '../types';
 import { TabNavigation } from './TabNavigation';
 import { TripInfoTab } from './tabs/TripInfoTab';
 import { PackingTab } from './tabs/PackingTab';
 import { ExpensesTab } from './tabs/ExpensesTab';
 import { ResortTab } from './tabs/ResortTab';
+import { FoodTab } from './tabs/FoodTab';
 import { ChevronRight, Share2, Sun, Moon } from 'lucide-react';
 import { useTheme } from '../useTheme';
 
@@ -17,7 +18,7 @@ interface Props {
 
 function getStoredTab(tripId: string): TabId {
   const stored = localStorage.getItem(`tab:${tripId}`);
-  if (stored === 'trip' || stored === 'packing' || stored === 'expenses' || stored === 'resort') return stored;
+  if (stored === 'trip' || stored === 'packing' || stored === 'expenses' || stored === 'resort' || stored === 'food') return stored;
   return 'trip';
 }
 
@@ -25,6 +26,15 @@ export function TripView({ trip, session, onUpdate, onBack }: Props) {
   const [activeTab, setActiveTab] = useState<TabId>(() => getStoredTab(trip.id));
   const [copied, setCopied] = useState(false);
   const { theme, toggle: toggleTheme } = useTheme();
+  const [online, setOnline] = useState(navigator.onLine);
+
+  useEffect(() => {
+    const on = () => setOnline(true);
+    const off = () => setOnline(false);
+    window.addEventListener('online', on);
+    window.addEventListener('offline', off);
+    return () => { window.removeEventListener('online', on); window.removeEventListener('offline', off); };
+  }, []);
 
   function changeTab(tab: TabId) {
     setActiveTab(tab);
@@ -69,9 +79,14 @@ export function TripView({ trip, session, onUpdate, onBack }: Props) {
             )}
           </button>
         </div>
-        <h1 className="text-[22px] font-bold text-ios-label truncate -mt-0.5">
-          {trip.name}
-        </h1>
+        <div className="flex items-center gap-2 -mt-0.5">
+          <h1 className="text-[22px] font-bold text-ios-label truncate">
+            {trip.name}
+          </h1>
+          {!online && (
+            <span className="shrink-0 w-2 h-2 rounded-full bg-red-500 animate-pulse" title="אופליין" />
+          )}
+        </div>
       </header>
 
       <main className="px-4 pt-3 pb-2 animate-fade-in">
@@ -85,6 +100,9 @@ export function TripView({ trip, session, onUpdate, onBack }: Props) {
           <ExpensesTab trip={trip} session={session} onUpdate={onUpdate} />
         )}
         {activeTab === 'resort' && <ResortTab />}
+        {activeTab === 'food' && (
+          <FoodTab trip={trip} session={session} onUpdate={onUpdate} />
+        )}
       </main>
 
       <TabNavigation active={activeTab} onChange={changeTab} />
