@@ -103,12 +103,33 @@ const USEFUL_LINKS = [
   { label: 'מפת 3 Vallées', url: 'https://www.les3vallees.com/en/ski-area/ski-map/', icon: MapPin },
 ];
 
+const WEATHER_CACHE_KEY = 'weather-cache';
+
+function saveWeatherCache(weather: WeatherData, temps: ElevationTemp[]) {
+  try {
+    localStorage.setItem(WEATHER_CACHE_KEY, JSON.stringify({ weather, temps, ts: Date.now() }));
+  } catch {}
+}
+
+function loadWeatherCache(): { weather: WeatherData; temps: ElevationTemp[] } | null {
+  try {
+    const raw = localStorage.getItem(WEATHER_CACHE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return { weather: parsed.weather, temps: parsed.temps };
+  } catch {
+    return null;
+  }
+}
+
 export function ResortTab() {
-  const [weather, setWeather] = useState<WeatherData | null>(null);
-  const [elevationTemps, setElevationTemps] = useState<ElevationTemp[]>([]);
-  const [loading, setLoading] = useState(true);
+  const cached = loadWeatherCache();
+  const [weather, setWeather] = useState<WeatherData | null>(cached?.weather ?? null);
+  const [elevationTemps, setElevationTemps] = useState<ElevationTemp[]>(cached?.temps ?? []);
+  const [loading, setLoading] = useState(!cached);
   const [error, setError] = useState(false);
   const [showMap, setShowMap] = useState(false);
+  const [fromCache, setFromCache] = useState(!!cached);
 
   useEffect(() => {
     const mainUrl = `https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m,visibility,snow_depth&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,snowfall_sum,wind_speed_10m_max&timezone=Europe/Paris&forecast_days=7`;
@@ -153,10 +174,12 @@ export function ResortTab() {
 
         setWeather({ current, daily });
         setElevationTemps(temps);
+        setFromCache(false);
+        saveWeatherCache({ current, daily }, temps);
         setLoading(false);
       })
       .catch(() => {
-        setError(true);
+        if (!cached) setError(true);
         setLoading(false);
       });
   }, []);
@@ -192,7 +215,9 @@ export function ResortTab() {
         <div className="relative z-10">
           <div className="flex items-center gap-2 mb-1">
             <MapPin size={14} className="text-sky-300" />
-            <span className="text-sky-200 text-[13px] font-medium">Val Thorens · 2,300m</span>
+            <span className="text-sky-200 text-[13px] font-medium">
+              Val Thorens · 2,300m{fromCache ? ' · שמור' : ''}
+            </span>
           </div>
           <div className="flex items-start justify-between">
             <div>

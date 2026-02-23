@@ -67,6 +67,17 @@ export function FoodTab({ trip: _trip, session: _session, onUpdate: _onUpdate }:
 
   void _trip; void _session; void _onUpdate;
 
+  function loadDiskCache(category: string): GooglePlace[] | null {
+    try {
+      const raw = localStorage.getItem(`food-cache:${category}`);
+      return raw ? JSON.parse(raw) : null;
+    } catch { return null; }
+  }
+
+  function saveDiskCache(category: string, data: GooglePlace[]) {
+    try { localStorage.setItem(`food-cache:${category}`, JSON.stringify(data)); } catch {}
+  }
+
   useEffect(() => {
     fetchPlaces(filter);
   }, [filter]);
@@ -79,7 +90,18 @@ export function FoodTab({ trip: _trip, session: _session, onUpdate: _onUpdate }:
       return;
     }
 
-    setLoading(true);
+    const disk = loadDiskCache(category);
+    if (disk) {
+      setPlaces(disk);
+      cache.current[category] = disk;
+    }
+
+    if (!navigator.onLine && disk) {
+      setLoading(false);
+      return;
+    }
+
+    if (!disk) setLoading(true);
     setError('');
 
     try {
@@ -115,9 +137,10 @@ export function FoodTab({ trip: _trip, session: _session, onUpdate: _onUpdate }:
       const results: GooglePlace[] = data.places ?? [];
       results.sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0));
       cache.current[category] = results;
+      saveDiskCache(category, results);
       setPlaces(results);
     } catch {
-      setError('לא הצלחנו לטעון מסעדות. בדוק חיבור לאינטרנט.');
+      if (!disk) setError('לא הצלחנו לטעון מסעדות. בדוק חיבור לאינטרנט.');
     } finally {
       setLoading(false);
     }
