@@ -217,7 +217,7 @@ export function PackingTab({ trip, session, onUpdate }: Props) {
 
             {!collapsed && (
               <div className="animate-slide-down">
-                {catItems.map((item, itemIdx) => {
+                {catItems.map((item) => {
                   const checkerName =
                     viewMode === 'shared' && item.checked && item.checkedBy
                       ? getPersonName(item.checkedBy) || ''

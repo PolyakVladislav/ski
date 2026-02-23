@@ -12,8 +12,6 @@ import {
   Wine,
   Ticket,
   ShoppingBag,
-  Fuel,
-  Car,
   Hotel,
   Pencil,
   X,
@@ -338,14 +336,6 @@ export function ExpensesTab({ trip, session, onUpdate }: Props) {
 
   function matchesPayer(paidBy: string | string[], personId: string): boolean {
     return Array.isArray(paidBy) ? paidBy.includes(personId) : paidBy === personId;
-  }
-
-  function getFixedExpense(type: string, personId?: string): Expense | undefined {
-    return trip.expenses.find(
-      (e) =>
-        e.fixedType === type &&
-        (personId ? matchesPayer(e.paidBy, personId) : !personId)
-    );
   }
 
   function saveFixedExpense(
