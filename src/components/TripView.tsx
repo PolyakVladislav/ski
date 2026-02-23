@@ -4,7 +4,8 @@ import { TabNavigation } from './TabNavigation';
 import { TripInfoTab } from './tabs/TripInfoTab';
 import { PackingTab } from './tabs/PackingTab';
 import { ExpensesTab } from './tabs/ExpensesTab';
-import { ChevronRight, Share2 } from 'lucide-react';
+import { ChevronRight, Share2, Sun, Moon } from 'lucide-react';
+import { useTheme } from '../useTheme';
 
 interface Props {
   trip: Trip;
@@ -16,6 +17,7 @@ interface Props {
 export function TripView({ trip, session, onUpdate, onBack }: Props) {
   const [activeTab, setActiveTab] = useState<TabId>('trip');
   const [copied, setCopied] = useState(false);
+  const { theme, toggle: toggleTheme } = useTheme();
 
   function shareLink() {
     const url = `${window.location.origin}${window.location.pathname}#${trip.id}`;
@@ -37,6 +39,12 @@ export function TripView({ trip, session, onUpdate, onBack }: Props) {
             <span className="text-[17px]">חזרה</span>
           </button>
           <div className="flex-1" />
+          <button
+            onClick={toggleTheme}
+            className="text-ios-blue active:opacity-60 transition-opacity p-2"
+          >
+            {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+          </button>
           <button
             onClick={shareLink}
             className="text-ios-blue active:opacity-60 transition-opacity p-2 -me-1 relative"

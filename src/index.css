@@ -26,6 +26,32 @@
   --color-pine: #34C759;
 }
 
+:root.dark {
+    --color-ios-bg: #000000;
+    --color-ios-card: #1c1c1e;
+    --color-ios-separator: rgba(84, 84, 88, 0.65);
+    --color-ios-blue: #0A84FF;
+    --color-ios-green: #30D158;
+    --color-ios-red: #FF453A;
+    --color-ios-orange: #FF9F0A;
+    --color-ios-purple: #BF5AF2;
+    --color-ios-gray: #8E8E93;
+    --color-ios-gray2: #636366;
+    --color-ios-gray3: #48484A;
+    --color-ios-gray4: #3A3A3C;
+    --color-ios-gray5: #2C2C2E;
+    --color-ios-gray6: #1C1C1E;
+    --color-ios-label: #FFFFFF;
+    --color-ios-label2: rgba(235, 235, 245, 0.6);
+    --color-ios-label3: rgba(235, 235, 245, 0.3);
+    --color-ios-label4: rgba(235, 235, 245, 0.18);
+    --color-snow: #000000;
+    --color-mountain: #0a1628;
+    --color-mountain-light: #162d4a;
+    --color-danger: #FF453A;
+    --color-pine: #30D158;
+}
+
 * {
   -webkit-tap-highlight-color: transparent;
 }
@@ -43,6 +69,7 @@ body {
 
 input, select, textarea {
   font-size: 16px;
+  color: var(--color-ios-label);
 }
 
 /* ---- Animations ---- */
@@ -118,6 +145,14 @@ input, select, textarea {
 
 .safe-bottom {
   padding-bottom: env(safe-area-inset-bottom, 16px);
+}
+
+.fab-position {
+  bottom: calc(4.5rem + env(safe-area-inset-bottom, 16px));
+}
+
+.modal-sheet {
+  max-height: calc(100dvh - env(safe-area-inset-top, 20px) - 1rem);
 }
 
 .stagger-1 { animation-delay: 0.03s; }

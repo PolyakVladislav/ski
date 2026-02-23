@@ -111,7 +111,7 @@ export function PackingTab({ trip, session, onUpdate }: Props) {
           onClick={() => setViewMode('mine')}
           className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-[13px] font-semibold transition-all duration-200 ${
             viewMode === 'mine'
-              ? 'bg-white text-ios-label shadow-sm'
+              ? 'bg-ios-card text-ios-label shadow-sm'
               : 'text-ios-gray'
           }`}
         >
@@ -125,7 +125,7 @@ export function PackingTab({ trip, session, onUpdate }: Props) {
           onClick={() => setViewMode('shared')}
           className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-[13px] font-semibold transition-all duration-200 ${
             viewMode === 'shared'
-              ? 'bg-white text-ios-label shadow-sm'
+              ? 'bg-ios-card text-ios-label shadow-sm'
               : 'text-ios-gray'
           }`}
         >

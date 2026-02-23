@@ -4,7 +4,6 @@ import { generateId } from '../../store';
 import {
   Plus,
   Trash2,
-  ArrowLeft,
   Receipt,
   TrendingUp,
   Coffee,
@@ -115,6 +114,7 @@ function calculateDebts(trip: Trip): Debt[] {
   trip.people.forEach((p) => balances.set(p.id, 0));
 
   for (const exp of trip.expenses) {
+    if (exp.fixedType === 'apartment') continue;
     const amountEur = toEur(exp.amount, exp.currency ?? 'ILS');
     const payers = getPayers(exp.paidBy);
     const perPayer = amountEur / payers.length;
@@ -208,6 +208,13 @@ export function ExpensesTab({ trip, session, onUpdate }: Props) {
   const [expandedFixed, setExpandedFixed] = useState<Set<string>>(new Set());
   const [showFixedCosts, setShowFixedCosts] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [expandedPurchase, setExpandedPurchase] = useState<string | null>(null);
+  const [editingExpense, setEditingExpense] = useState<string | null>(null);
+  const [editAmount, setEditAmount] = useState('');
+  const [editCurrency, setEditCurrency] = useState<Currency>('EUR');
+  const [editDesc, setEditDesc] = useState('');
+  const [editPaidBy, setEditPaidBy] = useState<string[]>([]);
+  const [editSplit, setEditSplit] = useState<string[]>([]);
 
   const totalEur = trip.expenses.reduce(
     (s, e) => s + toEur(e.amount, e.currency ?? 'ILS'),
@@ -234,9 +241,6 @@ export function ExpensesTab({ trip, session, onUpdate }: Props) {
     return trip.people.find((p) => p.id === id)?.name ?? '?';
   }
 
-  function getPersonIndex(id: string): number {
-    return trip.people.findIndex((p) => p.id === id);
-  }
 
   function getPersonSpending(personId: string): {
     paidEur: number;
@@ -328,6 +332,42 @@ export function ExpensesTab({ trip, session, onUpdate }: Props) {
       ...trip,
       expenses: trip.expenses.filter((e) => e.id !== id),
     });
+    if (expandedPurchase === id) setExpandedPurchase(null);
+  }
+
+  function startEdit(exp: Expense) {
+    setEditingExpense(exp.id);
+    setEditDesc(exp.description);
+    setEditAmount(String(exp.amount));
+    setEditCurrency(exp.currency ?? 'EUR');
+    setEditPaidBy(getPayers(exp.paidBy));
+    setEditSplit([...exp.splitBetween]);
+  }
+
+  function saveEdit() {
+    if (!editingExpense) return;
+    const val = parseFloat(editAmount);
+    if (!editDesc.trim() || isNaN(val) || val <= 0 || editPaidBy.length === 0 || editSplit.length === 0) return;
+    onUpdate({
+      ...trip,
+      expenses: trip.expenses.map((e) =>
+        e.id === editingExpense
+          ? {
+              ...e,
+              description: editDesc.trim(),
+              amount: val,
+              currency: editCurrency,
+              paidBy: editPaidBy.length === 1 ? editPaidBy[0] : editPaidBy,
+              splitBetween: editSplit,
+            }
+          : e
+      ),
+    });
+    setEditingExpense(null);
+  }
+
+  function cancelEdit() {
+    setEditingExpense(null);
   }
 
   function fixedKey(type: string, personId?: string): string {
@@ -402,29 +442,16 @@ export function ExpensesTab({ trip, session, onUpdate }: Props) {
     });
   }
 
-  function getTemplateIcon(description: string) {
-    const tpl = PURCHASE_TEMPLATES.find((t) => t.label === description);
-    if (!tpl) return null;
-    const Icon = tpl.icon;
-    return (
-      <div
-        className={`w-9 h-9 rounded-xl bg-gradient-to-br ${tpl.color} flex items-center justify-center text-white shrink-0 shadow-sm`}
-      >
-        <Icon size={18} />
-      </div>
-    );
-  }
-
   if (trip.people.length === 0) {
     return (
       <div className="text-center py-16 animate-fade-in">
-        <div className="w-20 h-20 mx-auto mb-4 bg-white rounded-3xl shadow-sm flex items-center justify-center">
-          <Receipt size={36} className="text-gray-300" />
+        <div className="w-20 h-20 mx-auto mb-4 bg-ios-card rounded-3xl shadow-sm flex items-center justify-center">
+          <Receipt size={36} className="text-ios-gray3" />
         </div>
-        <p className="text-lg font-medium text-gray-500 mb-1">
+        <p className="text-lg font-medium text-ios-label4 mb-1">
           אין משתתפים עדיין
         </p>
-        <p className="text-sm text-gray-400">
+        <p className="text-sm text-ios-gray">
           הוסף משתתפים בטאב &quot;טיול&quot; כדי לנהל הוצאות
         </p>
       </div>
@@ -469,59 +496,35 @@ export function ExpensesTab({ trip, session, onUpdate }: Props) {
 
       {/* 2. Per-person breakdown */}
       {trip.expenses.length > 0 && (
-        <div className="ios-card p-4 animate-fade-in-up stagger-2">
-          <h3 className="text-xs font-semibold text-ios-gray mb-3">
-            סיכום לפי משתתף
-          </h3>
-          <div className="space-y-2.5">
-            {trip.people.map((person, idx) => {
-              const { paidEur, owesEur } = getPersonSpending(person.id);
-              const balance = paidEur - owesEur;
-              return (
-                <div key={person.id} className="flex items-center gap-3">
+        <div className="ios-card overflow-hidden animate-fade-in-up stagger-2">
+          {trip.people.map((person, idx) => {
+            const { owesEur } = getPersonSpending(person.id);
+            return (
+              <div
+                key={person.id}
+                className={`flex items-center justify-between px-4 py-3 ${idx > 0 ? 'border-t border-ios-separator' : ''}`}
+              >
+                <div className="flex items-center gap-2.5 min-w-0">
                   <div
-                    className={`w-8 h-8 rounded-full bg-gradient-to-br ${
+                    className={`w-7 h-7 rounded-full bg-gradient-to-br ${
                       AVATAR_COLORS[idx % AVATAR_COLORS.length]
-                    } flex items-center justify-center text-white text-xs font-bold shrink-0`}
+                    } flex items-center justify-center text-white text-[11px] font-bold shrink-0`}
                   >
                     {person.name.charAt(0)}
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="font-medium text-ios-label text-sm truncate">
-                      {person.name}
-                    </div>
-                    <div className="text-xs text-ios-gray">
-                      שילם{' '}
-                      <span dir="ltr">{fmtEur(paidEur)}</span>
-                      <span className="text-ios-gray3" dir="ltr">
-                        {' '}
-                        ({fmtIls(paidEur * EUR_TO_ILS)})
-                      </span>
-                    </div>
+                  <span className="text-[15px] text-ios-label truncate">{person.name}</span>
+                </div>
+                <div className="text-left shrink-0">
+                  <div className="text-[15px] font-semibold text-ios-label" dir="ltr">
+                    {fmtEur(owesEur)}
                   </div>
-                  <div className="text-left">
-                    <div
-                      className={`text-sm font-bold ${
-                        balance > 0
-                          ? 'text-ios-green'
-                          : balance < 0
-                            ? 'text-ios-red'
-                            : 'text-ios-gray3'
-                      }`}
-                      dir="ltr"
-                    >
-                      {balance > 0 ? '+' : ''}
-                      {fmtEur(balance)}
-                    </div>
-                    <div className="text-xs text-ios-gray3" dir="ltr">
-                      {balance > 0 ? '+' : ''}
-                      {fmtIls(balance * EUR_TO_ILS)}
-                    </div>
+                  <div className="text-[11px] text-ios-gray" dir="ltr">
+                    {fmtIls(owesEur * EUR_TO_ILS)}
                   </div>
                 </div>
-              );
-            })}
-          </div>
+              </div>
+            );
+          })}
         </div>
       )}
 
@@ -803,55 +806,37 @@ export function ExpensesTab({ trip, session, onUpdate }: Props) {
 
       {/* 4. Debts */}
       {trip.expenses.length > 0 && (
-        <div className="ios-card p-4 animate-fade-in-up stagger-4">
-          <div className="flex items-center gap-2 mb-3">
+        <div className="ios-card overflow-hidden animate-fade-in-up stagger-4">
+          <div className="flex items-center gap-2 px-4 pt-3.5 pb-2">
             <TrendingUp size={14} className="text-ios-blue" />
             <h3 className="text-xs font-semibold text-ios-gray">
               מאזן חובות
             </h3>
           </div>
           {debts.length === 0 ? (
-            <div className="flex items-center justify-center gap-2 py-4 text-ios-green">
-              <CheckCircle size={20} />
-              <span className="font-semibold text-sm">הכל מאוזן! אין חובות</span>
+            <div className="flex items-center justify-center gap-2 px-4 pb-4 pt-1 text-ios-green">
+              <CheckCircle size={18} />
+              <span className="font-semibold text-sm">הכל מאוזן!</span>
             </div>
           ) : (
-            <div className="space-y-2">
+            <div>
               {debts.map((d, i) => (
                 <div
                   key={i}
-                  className="flex items-center gap-2.5 bg-ios-blue/5 rounded-xl px-4 py-3 animate-fade-in-up"
-                  style={{ animationDelay: `${i * 60}ms` }}
+                  className={`flex items-center justify-between px-4 py-3 ${i > 0 ? 'border-t border-ios-separator' : ''}`}
                 >
-                  <div
-                    className={`w-7 h-7 rounded-full bg-gradient-to-br ${
-                      AVATAR_COLORS[
-                        getPersonIndex(d.from) % AVATAR_COLORS.length
-                      ]
-                    } flex items-center justify-center text-white text-xs font-bold shrink-0`}
-                  >
-                    {getPersonName(d.from).charAt(0)}
+                  <div className="text-[14px] text-ios-label">
+                    <span className="font-semibold">{getPersonName(d.from)}</span>
+                    <span className="text-ios-gray mx-1">←</span>
+                    <span className="font-semibold">{getPersonName(d.to)}</span>
                   </div>
-                  <ArrowLeft size={14} className="text-ios-gray shrink-0" />
-                  <div
-                    className={`w-7 h-7 rounded-full bg-gradient-to-br ${
-                      AVATAR_COLORS[
-                        getPersonIndex(d.to) % AVATAR_COLORS.length
-                      ]
-                    } flex items-center justify-center text-white text-xs font-bold shrink-0`}
-                  >
-                    {getPersonName(d.to).charAt(0)}
-                  </div>
-                  <div className="me-auto text-left">
-                    <span className="font-bold text-ios-label" dir="ltr">
+                  <div className="text-left shrink-0">
+                    <div className="text-[15px] font-bold text-ios-red" dir="ltr">
                       {fmtEur(d.amount)}
-                    </span>
-                    <span
-                      className="text-xs text-ios-gray block"
-                      dir="ltr"
-                    >
+                    </div>
+                    <div className="text-[11px] text-ios-gray" dir="ltr">
                       {fmtIls(d.amount * EUR_TO_ILS)}
-                    </span>
+                    </div>
                   </div>
                 </div>
               ))}
@@ -871,60 +856,164 @@ export function ExpensesTab({ trip, session, onUpdate }: Props) {
           </h3>
           <div className="ios-card overflow-hidden">
             {[...purchaseExpenses].reverse().map((exp, i) => {
-              const templateIcon = getTemplateIcon(exp.description);
               const amtEur = toEur(exp.amount, exp.currency ?? 'ILS');
+              const isOpen = expandedPurchase === exp.id;
+              const isEditing = editingExpense === exp.id;
+              const payers = getPayers(exp.paidBy);
+              const payerNames = payers.map(getPersonName).join(', ');
+
               return (
-                <div
-                  key={exp.id}
-                  className={`flex items-center gap-3 px-4 py-3.5 animate-fade-in ${i > 0 ? 'border-t border-ios-separator' : ''}`}
-                  style={{ animationDelay: `${i * 30}ms` }}
-                >
-                  {(() => {
-                    const payers = getPayers(exp.paidBy);
-                    const firstPayer = payers[0];
-                    const payerNames = payers.map(getPersonName).join(' + ');
-                    return (
-                      <>
-                        {templateIcon || (
-                          <div
-                            className={`w-9 h-9 rounded-xl bg-gradient-to-br ${
-                              AVATAR_COLORS[
-                                getPersonIndex(firstPayer) %
-                                  AVATAR_COLORS.length
-                              ]
-                            } flex items-center justify-center text-white text-sm font-bold shrink-0`}
-                          >
-                            {payers.length > 1
-                              ? payers.length
-                              : getPersonName(firstPayer).charAt(0)}
+                <div key={exp.id} className={i > 0 ? 'border-t border-ios-separator' : ''}>
+                  {/* Compact row */}
+                  <button
+                    onClick={() => setExpandedPurchase(isOpen ? null : exp.id)}
+                    className="w-full flex items-center justify-between px-4 py-2.5 active:bg-ios-gray6 transition-colors text-right"
+                  >
+                    <div className="flex-1 min-w-0 flex items-baseline gap-2">
+                      <span className="text-[14px] text-ios-label truncate">{exp.description}</span>
+                      <span className="text-[11px] text-ios-gray shrink-0">
+                        {formatDate(exp.date)}
+                      </span>
+                    </div>
+                    <div className="shrink-0 ms-3 flex items-center gap-1.5">
+                      <span className="text-[14px] font-semibold text-ios-label" dir="ltr">
+                        {fmtEur(amtEur)}
+                      </span>
+                      <ChevronDown
+                        size={14}
+                        className={`text-ios-gray3 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}
+                      />
+                    </div>
+                  </button>
+
+                  {/* Expanded details */}
+                  {isOpen && (
+                    <div className="bg-ios-gray6 px-4 py-3 space-y-2.5 animate-slide-down">
+                      {!isEditing ? (
+                        <>
+                          <div className="flex justify-between text-[13px]">
+                            <span className="text-ios-gray">סכום</span>
+                            <span className="text-ios-label font-medium" dir="ltr">
+                              {fmtEur(amtEur)}
+                              <span className="text-ios-gray mr-1">({fmtIls(amtEur * EUR_TO_ILS)})</span>
+                            </span>
                           </div>
-                        )}
-                        <div className="flex-1 min-w-0">
-                          <div className="font-semibold text-ios-label text-[15px] truncate">
-                            {exp.description}
+                          <div className="flex justify-between text-[13px]">
+                            <span className="text-ios-gray">שילמו</span>
+                            <span className="text-ios-label font-medium">{payerNames}</span>
                           </div>
-                          <div className="text-[12px] text-ios-gray mt-0.5">
-                            {payerNames} ·{' '}
-                            {formatDate(exp.date)} {formatTime(exp.date)}
+                          <div className="flex justify-between text-[13px]">
+                            <span className="text-ios-gray">מחולק בין</span>
+                            <span className="text-ios-label font-medium">
+                              {exp.splitBetween.length === trip.people.length
+                                ? 'כולם'
+                                : exp.splitBetween.map(getPersonName).join(', ')}
+                            </span>
+                          </div>
+                          {exp.splitBetween.length > 0 && (
+                            <div className="flex justify-between text-[13px]">
+                              <span className="text-ios-gray">לאדם</span>
+                              <span className="text-ios-label font-medium" dir="ltr">
+                                {fmtEur(amtEur / exp.splitBetween.length)}
+                              </span>
+                            </div>
+                          )}
+                          <div className="flex justify-between text-[13px]">
+                            <span className="text-ios-gray">תאריך</span>
+                            <span className="text-ios-label font-medium" dir="ltr">
+                              {formatDate(exp.date)} {formatTime(exp.date)}
+                            </span>
+                          </div>
+                          <div className="flex gap-2 pt-1">
+                            <button
+                              onClick={() => startEdit(exp)}
+                              className="flex-1 text-center text-[13px] font-semibold text-ios-blue py-2 rounded-lg bg-ios-card active:bg-ios-gray5 transition-colors"
+                            >
+                              ערוך
+                            </button>
+                            <button
+                              onClick={() => removeExpense(exp.id)}
+                              className="flex-1 text-center text-[13px] font-semibold text-ios-red py-2 rounded-lg bg-ios-card active:bg-ios-gray5 transition-colors"
+                            >
+                              מחק
+                            </button>
+                          </div>
+                        </>
+                      ) : (
+                        <div className="space-y-3 animate-fade-in">
+                          <input
+                            type="text"
+                            value={editDesc}
+                            onChange={(e) => setEditDesc(e.target.value)}
+                            className="w-full bg-ios-card rounded-lg px-3 py-2 text-[14px] text-ios-label focus:outline-none focus:ring-2 focus:ring-ios-blue/30"
+                          />
+                          <div className="flex gap-2">
+                            <input
+                              type="number"
+                              inputMode="decimal"
+                              value={editAmount}
+                              onChange={(e) => setEditAmount(e.target.value)}
+                              dir="ltr"
+                              className="flex-1 bg-ios-card rounded-lg px-3 py-2 text-[14px] text-ios-label text-left font-semibold focus:outline-none focus:ring-2 focus:ring-ios-blue/30"
+                            />
+                            <MiniCurrencyToggle currency={editCurrency} onChange={setEditCurrency} />
+                          </div>
+                          <div>
+                            <p className="text-[11px] font-semibold text-ios-gray mb-1.5">שילמו</p>
+                            <div className="flex flex-wrap gap-1.5">
+                              {trip.people.map((p) => {
+                                const sel = editPaidBy.includes(p.id);
+                                return (
+                                  <button
+                                    key={p.id}
+                                    onClick={() => setEditPaidBy((prev) => sel ? prev.filter((x) => x !== p.id) : [...prev, p.id])}
+                                    className={`px-3 py-1.5 rounded-full text-[12px] font-medium transition-all ${
+                                      sel ? 'bg-ios-blue text-white' : 'bg-ios-card text-ios-label3'
+                                    }`}
+                                  >
+                                    {p.name}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                          <div>
+                            <p className="text-[11px] font-semibold text-ios-gray mb-1.5">מחולק בין</p>
+                            <div className="flex flex-wrap gap-1.5">
+                              {trip.people.map((p) => {
+                                const sel = editSplit.includes(p.id);
+                                return (
+                                  <button
+                                    key={p.id}
+                                    onClick={() => setEditSplit((prev) => sel ? prev.filter((x) => x !== p.id) : [...prev, p.id])}
+                                    className={`px-3 py-1.5 rounded-full text-[12px] font-medium transition-all ${
+                                      sel ? 'bg-ios-blue text-white' : 'bg-ios-card text-ios-label3'
+                                    }`}
+                                  >
+                                    {p.name}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                          <div className="flex gap-2">
+                            <button
+                              onClick={saveEdit}
+                              className="flex-1 bg-ios-blue text-white text-[13px] font-semibold py-2 rounded-lg active:opacity-80 transition-opacity"
+                            >
+                              שמור
+                            </button>
+                            <button
+                              onClick={cancelEdit}
+                              className="flex-1 text-ios-blue text-[13px] font-semibold py-2 rounded-lg bg-ios-card active:bg-ios-gray5 transition-colors"
+                            >
+                              ביטול
+                            </button>
                           </div>
                         </div>
-                        <div className="text-left">
-                          <div className="font-bold text-ios-label text-sm" dir="ltr">
-                            {fmtEur(amtEur)}
-                          </div>
-                          <div className="text-[11px] text-ios-gray3" dir="ltr">
-                            {fmtIls(amtEur * EUR_TO_ILS)}
-                          </div>
-                        </div>
-                        <button
-                          onClick={() => removeExpense(exp.id)}
-                          className="text-ios-gray4 active:text-ios-red p-1 transition-colors"
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      </>
-                    );
-                  })()}
+                      )}
+                    </div>
+                  )}
                 </div>
               );
             })}
@@ -935,7 +1024,7 @@ export function ExpensesTab({ trip, session, onUpdate }: Props) {
       {/* Floating Add Button */}
       <button
         onClick={openAddModal}
-        className="fixed bottom-24 left-5 w-14 h-14 bg-ios-blue text-white rounded-full shadow-lg shadow-ios-blue/30 flex items-center justify-center active:scale-90 transition-transform z-40"
+        className="fixed z-40 left-5 w-14 h-14 bg-ios-blue text-white rounded-full shadow-lg shadow-ios-blue/30 flex items-center justify-center active:scale-90 transition-transform fab-position"
       >
         <Plus size={28} strokeWidth={2.5} />
       </button>
@@ -947,8 +1036,8 @@ export function ExpensesTab({ trip, session, onUpdate }: Props) {
             className="absolute inset-0 bg-black/40 backdrop-blur-sm animate-fade-in"
             onClick={closeAddModal}
           />
-          <div className="relative w-full max-w-lg bg-ios-bg rounded-t-3xl animate-slide-up max-h-[85vh] overflow-y-auto safe-bottom">
-            <div className="sticky top-0 bg-ios-bg/90 backdrop-blur-xl z-10 px-5 pt-3 pb-2 border-b border-ios-separator">
+          <div className="relative w-full max-w-lg bg-ios-bg rounded-t-3xl animate-slide-up flex flex-col modal-sheet">
+            <div className="shrink-0 px-5 pt-3 pb-2 border-b border-ios-separator">
               <div className="w-10 h-1 bg-ios-gray4 rounded-full mx-auto mb-3" />
               <div className="flex items-center justify-between">
                 <h2 className="text-lg font-bold text-ios-label">הוצאה חדשה</h2>
@@ -961,7 +1050,7 @@ export function ExpensesTab({ trip, session, onUpdate }: Props) {
               </div>
             </div>
 
-            <div className="p-5 space-y-4">
+            <div className={`flex-1 overflow-y-auto overscroll-contain p-5 space-y-4 ${!showForm ? 'pb-16' : 'pb-2'}`}>
               {!showForm ? (
                 <>
                   <div className="grid grid-cols-2 gap-2">
@@ -1169,23 +1258,28 @@ export function ExpensesTab({ trip, session, onUpdate }: Props) {
                       {validationError}
                     </div>
                   )}
-
-                  <button
-                    onClick={() => {
-                      if (submitExpense()) setShowAddModal(false);
-                    }}
-                    className="w-full bg-ios-blue text-white font-semibold py-3.5 rounded-xl active:opacity-80 transition-opacity"
-                  >
-                    הוסף{' '}
-                    {activeTemplate
-                      ? `"${activeTemplate.label}"`
-                      : desc.trim()
-                        ? `"${desc.trim()}"`
-                        : 'הוצאה'}
-                  </button>
                 </div>
               )}
             </div>
+
+            {/* Fixed footer with submit button */}
+            {showForm && (
+              <div className="shrink-0 px-5 pt-3 pb-10 border-t border-ios-separator bg-ios-bg">
+                <button
+                  onClick={() => {
+                    if (submitExpense()) setShowAddModal(false);
+                  }}
+                  className="w-full bg-ios-blue text-white font-semibold py-3.5 rounded-xl active:opacity-80 transition-opacity"
+                >
+                  הוסף{' '}
+                  {activeTemplate
+                    ? `"${activeTemplate.label}"`
+                    : desc.trim()
+                      ? `"${desc.trim()}"`
+                      : 'הוצאה'}
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -1209,7 +1303,7 @@ function CurrencyToggle({
           className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
             currency === c
               ? 'bg-sky-500 text-white shadow-sm'
-              : 'bg-gray-100 text-gray-500 active:bg-gray-200'
+              : 'bg-ios-gray5 text-ios-label4 active:bg-ios-gray4'
           }`}
         >
           {c} {currencySymbol(c)}
@@ -1229,7 +1323,7 @@ function MiniCurrencyToggle({
   return (
     <button
       onClick={() => onChange(nextCurrency(currency))}
-      className="px-2.5 py-2 rounded-xl bg-gray-100 text-xs font-bold text-gray-600 active:bg-gray-200 transition-all min-w-[36px] text-center"
+      className="px-2.5 py-2 rounded-xl bg-ios-gray5 text-xs font-bold text-ios-label3 active:bg-ios-gray4 transition-all min-w-[36px] text-center"
     >
       {currencySymbol(currency)}
     </button>
@@ -1247,7 +1341,7 @@ function PersonalFixedSummary({
   const total = trip.people.length;
   if (filled.length === 0)
     return (
-      <span className="text-xs text-gray-300" dir="ltr">
+      <span className="text-xs text-ios-gray3" dir="ltr">
         0/{total}
       </span>
     );
@@ -1258,10 +1352,10 @@ function PersonalFixedSummary({
   );
   return (
     <div className="text-left">
-      <span className="text-xs font-bold text-gray-700" dir="ltr">
+      <span className="text-xs font-bold text-ios-label2" dir="ltr">
         {fmtEur(sumEur)}
       </span>
-      <span className="text-xs text-gray-300 block" dir="ltr">
+      <span className="text-xs text-ios-gray3 block" dir="ltr">
         {filled.length}/{total}
       </span>
     </div>

@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import type { Trip, UserSession } from '../types';
 import { generateId, createDefaultSharedItems } from '../store';
-import { Plus, Trash2, Users, Calendar, Mountain, LogOut, Share2 } from 'lucide-react';
+import { Plus, Trash2, Users, Calendar, Mountain, LogOut, Share2, Sun, Moon } from 'lucide-react';
+import { useTheme } from '../useTheme';
 
 interface Props {
   trips: Trip[];
@@ -15,6 +16,7 @@ interface Props {
 export function TripList({ trips, session, onAdd, onSelect, onDelete, onLogout }: Props) {
   const [showForm, setShowForm] = useState(false);
   const [name, setName] = useState('');
+  const { theme, toggle: toggleTheme } = useTheme();
 
   function handleCreate() {
     if (!name.trim()) return;
@@ -43,13 +45,22 @@ export function TripList({ trips, session, onAdd, onSelect, onDelete, onLogout }
       <header className="bg-ios-card/80 backdrop-blur-xl border-b border-ios-separator px-4 pt-[max(1rem,env(safe-area-inset-top))] pb-3">
         <div className="flex items-center justify-between mb-1">
           <div className="text-xs text-ios-gray">שלום, {session.name}</div>
-          <button
-            onClick={onLogout}
-            className="text-ios-blue active:opacity-60 transition-opacity p-1"
-            title="התנתק"
-          >
-            <LogOut size={18} />
-          </button>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={toggleTheme}
+              className="text-ios-blue active:opacity-60 transition-opacity p-1"
+              title={theme === 'dark' ? 'מצב בהיר' : 'מצב כהה'}
+            >
+              {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+            </button>
+            <button
+              onClick={onLogout}
+              className="text-ios-blue active:opacity-60 transition-opacity p-1"
+              title="התנתק"
+            >
+              <LogOut size={18} />
+            </button>
+          </div>
         </div>
         <h1 className="text-[28px] font-bold text-ios-label">טיולי סקי</h1>
       </header>

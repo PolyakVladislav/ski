@@ -52,8 +52,8 @@ export default function App() {
 
   if (activeTripId && tripLoading) {
     return (
-      <div className="min-h-dvh bg-snow flex items-center justify-center">
-        <Loader2 size={32} className="text-sky-500 animate-spin" />
+      <div className="min-h-dvh bg-ios-bg flex items-center justify-center">
+        <Loader2 size={32} className="text-ios-blue animate-spin" />
       </div>
     );
   }
@@ -71,8 +71,8 @@ export default function App() {
 
   if (listLoading) {
     return (
-      <div className="min-h-dvh bg-snow flex items-center justify-center">
-        <Loader2 size={32} className="text-sky-500 animate-spin" />
+      <div className="min-h-dvh bg-ios-bg flex items-center justify-center">
+        <Loader2 size={32} className="text-ios-blue animate-spin" />
       </div>
     );
   }

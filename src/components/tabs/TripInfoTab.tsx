@@ -143,9 +143,9 @@ export function TripInfoTab({ trip, session, onUpdate }: Props) {
 
       {/* Outbound flight */}
       <div className="ios-card overflow-hidden animate-fade-in-up stagger-1">
-        <div className="bg-sky-50 px-4 py-3 flex items-center gap-2">
-          <Plane size={16} className="text-sky-600" />
-          <span className="font-bold text-sky-800 text-sm">טיסת הלוך</span>
+        <div className="bg-sky-500/10 px-4 py-3 flex items-center gap-2">
+          <Plane size={16} className="text-sky-500" />
+          <span className="font-bold text-sky-600 dark:text-sky-400 text-sm">טיסת הלוך</span>
           <span className="text-xs text-sky-500 mr-auto" dir="ltr">
             יום ד׳ 25.02.2026
           </span>
@@ -159,12 +159,12 @@ export function TripInfoTab({ trip, session, onUpdate }: Props) {
             </div>
             <div className="pb-4 flex-1">
               <div className="flex items-baseline justify-between">
-                <span className="font-bold text-gray-900" dir="ltr">05:20</span>
-                <span className="text-xs text-gray-400">Terminal 3</span>
+                <span className="font-bold text-ios-label" dir="ltr">05:20</span>
+                <span className="text-xs text-ios-gray">Terminal 3</span>
               </div>
-              <div className="text-sm text-gray-700 font-medium">Tel Aviv Ben Gurion</div>
-              <div className="mt-2 text-xs text-gray-400 flex items-center gap-2">
-                <span dir="ltr" className="bg-gray-100 px-2 py-0.5 rounded-full font-medium">A3929</span>
+              <div className="text-sm text-ios-label2 font-medium">Tel Aviv Ben Gurion</div>
+              <div className="mt-2 text-xs text-ios-gray flex items-center gap-2">
+                <span dir="ltr" className="bg-ios-gray5 px-2 py-0.5 rounded-full font-medium">A3929</span>
                 <span>Aegean Airlines</span>
                 <span>·</span>
                 <span dir="ltr">2 שעות 10 דק׳</span>
@@ -180,10 +180,10 @@ export function TripInfoTab({ trip, session, onUpdate }: Props) {
             </div>
             <div className="pb-4 flex-1">
               <div className="flex items-baseline justify-between">
-                <span className="font-bold text-gray-900" dir="ltr">07:30</span>
+                <span className="font-bold text-ios-label" dir="ltr">07:30</span>
               </div>
-              <div className="text-sm text-gray-700 font-medium">Athens El. Venizelos</div>
-              <div className="mt-1.5 bg-amber-50 rounded-lg px-3 py-2 text-xs text-amber-700 font-medium">
+              <div className="text-sm text-ios-label2 font-medium">Athens El. Venizelos</div>
+              <div className="mt-1.5 bg-amber-500/10 rounded-lg px-3 py-2 text-xs text-amber-600 dark:text-amber-400 font-medium">
                 <Clock size={12} className="inline ml-1" />
                 המתנה 50 דקות
               </div>
@@ -198,12 +198,12 @@ export function TripInfoTab({ trip, session, onUpdate }: Props) {
             </div>
             <div className="pb-4 flex-1">
               <div className="flex items-baseline justify-between">
-                <span className="font-bold text-gray-900" dir="ltr">08:20</span>
-                <span className="text-xs text-gray-400">Terminal 3</span>
+                <span className="font-bold text-ios-label" dir="ltr">08:20</span>
+                <span className="text-xs text-ios-gray">Terminal 3</span>
               </div>
-              <div className="text-sm text-gray-700 font-medium">Athens El. Venizelos</div>
-              <div className="mt-2 text-xs text-gray-400 flex items-center gap-2">
-                <span dir="ltr" className="bg-gray-100 px-2 py-0.5 rounded-full font-medium">A3854</span>
+              <div className="text-sm text-ios-label2 font-medium">Athens El. Venizelos</div>
+              <div className="mt-2 text-xs text-ios-gray flex items-center gap-2">
+                <span dir="ltr" className="bg-ios-gray5 px-2 py-0.5 rounded-full font-medium">A3854</span>
                 <span>Aegean Airlines</span>
                 <span>·</span>
                 <span dir="ltr">2 שעות 50 דק׳</span>
@@ -218,14 +218,14 @@ export function TripInfoTab({ trip, session, onUpdate }: Props) {
             </div>
             <div className="flex-1">
               <div className="flex items-baseline justify-between">
-                <span className="font-bold text-gray-900" dir="ltr">10:10</span>
-                <span className="text-xs text-gray-400">Terminal 1</span>
+                <span className="font-bold text-ios-label" dir="ltr">10:10</span>
+                <span className="text-xs text-ios-gray">Terminal 1</span>
               </div>
-              <div className="text-sm text-gray-700 font-medium">Geneva Int. Airport</div>
+              <div className="text-sm text-ios-label2 font-medium">Geneva Int. Airport</div>
             </div>
           </div>
         </div>
-        <div className="px-4 pb-3 flex gap-3 text-xs text-gray-400">
+        <div className="px-4 pb-3 flex gap-3 text-xs text-ios-gray">
           <span>ComfortFlex · Economy</span>
           <span dir="ltr">סה״כ 5:50 שעות</span>
         </div>
@@ -233,9 +233,9 @@ export function TripInfoTab({ trip, session, onUpdate }: Props) {
 
       {/* Transfer */}
       <div className="ios-card overflow-hidden animate-fade-in-up stagger-2">
-        <div className="bg-emerald-50 px-4 py-3 flex items-center gap-2">
-          <Bus size={16} className="text-emerald-600" />
-          <span className="font-bold text-emerald-800 text-sm">הסעה לאתר</span>
+        <div className="bg-emerald-500/10 px-4 py-3 flex items-center gap-2">
+          <Bus size={16} className="text-emerald-500" />
+          <span className="font-bold text-emerald-600 dark:text-emerald-400 text-sm">הסעה לאתר</span>
           <span className="text-xs text-emerald-500 mr-auto" dir="ltr">
             25.02.2026
           </span>
@@ -248,10 +248,10 @@ export function TripInfoTab({ trip, session, onUpdate }: Props) {
             </div>
             <div className="pb-4 flex-1">
               <div className="flex items-baseline justify-between">
-                <span className="font-bold text-gray-900" dir="ltr">~11:30</span>
+                <span className="font-bold text-ios-label" dir="ltr">~11:30</span>
                 <span className="text-xs text-emerald-500 font-medium">איסוף משוער</span>
               </div>
-              <div className="text-sm text-gray-700 font-medium">Geneva Airport</div>
+              <div className="text-sm text-ios-label2 font-medium">Geneva Airport</div>
             </div>
           </div>
           <div className="flex gap-3">
@@ -259,23 +259,23 @@ export function TripInfoTab({ trip, session, onUpdate }: Props) {
               <div className="w-3 h-3 rounded-full bg-emerald-600 ring-2 ring-emerald-200" />
             </div>
             <div className="flex-1">
-              <div className="text-sm text-gray-700 font-medium">Val Thorens</div>
-              <div className="text-xs text-gray-400 mt-0.5">
+              <div className="text-sm text-ios-label2 font-medium">Val Thorens</div>
+              <div className="text-xs text-ios-gray mt-0.5">
                 Gare Routiere, Place des Arolles
               </div>
             </div>
           </div>
         </div>
-        <div className="px-4 pb-3 text-xs text-gray-400">
+        <div className="px-4 pb-3 text-xs text-ios-gray">
           Shared Transfer · Fixed Point
         </div>
       </div>
 
       {/* Accommodation */}
       <div className="ios-card overflow-hidden animate-fade-in-up stagger-2">
-        <div className="bg-rose-50 px-4 py-3 flex items-center gap-2">
-          <Home size={16} className="text-rose-600" />
-          <span className="font-bold text-rose-800 text-sm">לינה</span>
+        <div className="bg-rose-500/10 px-4 py-3 flex items-center gap-2">
+          <Home size={16} className="text-rose-500" />
+          <span className="font-bold text-rose-600 dark:text-rose-400 text-sm">לינה</span>
           <span className="text-xs text-rose-500 mr-auto" dir="ltr">
             Airbnb · 7 לילות
           </span>
@@ -292,38 +292,38 @@ export function TripInfoTab({ trip, session, onUpdate }: Props) {
         </div>
         <div className="p-4 space-y-3">
           <div>
-            <h3 className="font-bold text-gray-900">Home in Les Belleville</h3>
-            <p className="text-sm text-gray-500">Hosted by Damien</p>
+            <h3 className="font-bold text-ios-label">Home in Les Belleville</h3>
+            <p className="text-sm text-ios-label4">Hosted by Damien</p>
           </div>
 
           <div className="flex gap-3">
-            <div className="flex-1 bg-gray-50 rounded-xl px-3 py-2.5">
-              <div className="text-xs text-gray-400 font-medium">Check-in</div>
-              <div className="font-bold text-gray-800 text-sm" dir="ltr">Wed, Feb 25</div>
-              <div className="text-xs text-gray-500" dir="ltr">4:00 PM</div>
+            <div className="flex-1 bg-ios-gray6 rounded-xl px-3 py-2.5">
+              <div className="text-xs text-ios-gray font-medium">Check-in</div>
+              <div className="font-bold text-ios-label text-sm" dir="ltr">Wed, Feb 25</div>
+              <div className="text-xs text-ios-label4" dir="ltr">4:00 PM</div>
             </div>
-            <div className="flex-1 bg-gray-50 rounded-xl px-3 py-2.5">
-              <div className="text-xs text-gray-400 font-medium">Checkout</div>
-              <div className="font-bold text-gray-800 text-sm" dir="ltr">Wed, Mar 4</div>
-              <div className="text-xs text-gray-500" dir="ltr">11:00 AM</div>
+            <div className="flex-1 bg-ios-gray6 rounded-xl px-3 py-2.5">
+              <div className="text-xs text-ios-gray font-medium">Checkout</div>
+              <div className="font-bold text-ios-label text-sm" dir="ltr">Wed, Mar 4</div>
+              <div className="text-xs text-ios-label4" dir="ltr">11:00 AM</div>
             </div>
           </div>
 
           <div className="flex items-center gap-2 text-sm">
-            <MapPin size={14} className="text-gray-400 shrink-0" />
-            <span className="text-gray-600" dir="ltr">
+            <MapPin size={14} className="text-ios-gray shrink-0" />
+            <span className="text-ios-label3" dir="ltr">
               Grande Rue Lac du loup, Les Belleville, 73440
             </span>
           </div>
 
-          <div className="flex items-center justify-between bg-gray-50 rounded-xl px-3 py-2.5">
+          <div className="flex items-center justify-between bg-ios-gray6 rounded-xl px-3 py-2.5">
             <div>
-              <div className="text-xs text-gray-400">Confirmation code</div>
-              <div className="font-mono font-bold text-gray-800 text-sm" dir="ltr">HM2TRCRKF8</div>
+              <div className="text-xs text-ios-gray">Confirmation code</div>
+              <div className="font-mono font-bold text-ios-label text-sm" dir="ltr">HM2TRCRKF8</div>
             </div>
             <button
               onClick={copyConfirmation}
-              className="text-gray-400 active:text-sky-500 p-1.5 transition-colors"
+              className="text-ios-gray active:text-sky-500 p-1.5 transition-colors"
             >
               {copied ? <Check size={16} className="text-green-500" /> : <Copy size={16} />}
             </button>
@@ -333,22 +333,22 @@ export function TripInfoTab({ trip, session, onUpdate }: Props) {
             href="https://www.airbnb.com/trips/v1/reservation-details/ro/RESERVATION2_CHECKIN/HM2TRCRKF8"
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center justify-center gap-2 w-full border border-gray-200 rounded-xl py-2.5 text-sm font-medium text-gray-700 active:bg-gray-50 transition-colors"
+            className="flex items-center justify-center gap-2 w-full border border-ios-separator rounded-xl py-2.5 text-sm font-medium text-ios-label2 active:bg-ios-gray6 transition-colors"
           >
             <ExternalLink size={14} />
             פתח ב-Airbnb
           </a>
         </div>
-        <div className="px-4 pb-3 text-xs text-gray-400">
+        <div className="px-4 pb-3 text-xs text-ios-gray">
           Non-refundable · Auvergne-Rhône-Alpes, France
         </div>
       </div>
 
       {/* Return transfer */}
       <div className="ios-card overflow-hidden animate-fade-in-up stagger-3">
-        <div className="bg-orange-50 px-4 py-3 flex items-center gap-2">
-          <Bus size={16} className="text-orange-600" />
-          <span className="font-bold text-orange-800 text-sm">הסעה לשדה התעופה</span>
+        <div className="bg-orange-500/10 px-4 py-3 flex items-center gap-2">
+          <Bus size={16} className="text-orange-500" />
+          <span className="font-bold text-orange-600 dark:text-orange-400 text-sm">הסעה לשדה התעופה</span>
           <span className="text-xs text-orange-500 mr-auto" dir="ltr">
             04.03.2026
           </span>
@@ -361,11 +361,11 @@ export function TripInfoTab({ trip, session, onUpdate }: Props) {
             </div>
             <div className="pb-4 flex-1">
               <div className="flex items-baseline justify-between">
-                <span className="font-bold text-gray-900" dir="ltr">05:00</span>
+                <span className="font-bold text-ios-label" dir="ltr">05:00</span>
                 <span className="text-xs text-orange-500 font-medium">איסוף משוער</span>
               </div>
-              <div className="text-sm text-gray-700 font-medium">Val Thorens</div>
-              <div className="text-xs text-gray-400 mt-0.5">
+              <div className="text-sm text-ios-label2 font-medium">Val Thorens</div>
+              <div className="text-xs text-ios-gray mt-0.5">
                 Gare Routiere, Place des Arolles
               </div>
             </div>
@@ -375,20 +375,20 @@ export function TripInfoTab({ trip, session, onUpdate }: Props) {
               <div className="w-3 h-3 rounded-full bg-orange-600 ring-2 ring-orange-200" />
             </div>
             <div className="flex-1">
-              <div className="text-sm text-gray-700 font-medium">Geneva Airport</div>
+              <div className="text-sm text-ios-label2 font-medium">Geneva Airport</div>
             </div>
           </div>
         </div>
-        <div className="px-4 pb-3 text-xs text-gray-400">
+        <div className="px-4 pb-3 text-xs text-ios-gray">
           Shared Transfer · Fixed Point
         </div>
       </div>
 
       {/* Return flight */}
       <div className="ios-card overflow-hidden animate-fade-in-up stagger-4">
-        <div className="bg-violet-50 px-4 py-3 flex items-center gap-2">
-          <Plane size={16} className="text-violet-600 rotate-180" />
-          <span className="font-bold text-violet-800 text-sm">טיסת חזור</span>
+        <div className="bg-violet-500/10 px-4 py-3 flex items-center gap-2">
+          <Plane size={16} className="text-violet-500 rotate-180" />
+          <span className="font-bold text-violet-600 dark:text-violet-400 text-sm">טיסת חזור</span>
           <span className="text-xs text-violet-500 mr-auto" dir="ltr">
             יום ד׳ 04.03.2026
           </span>
@@ -402,12 +402,12 @@ export function TripInfoTab({ trip, session, onUpdate }: Props) {
             </div>
             <div className="pb-4 flex-1">
               <div className="flex items-baseline justify-between">
-                <span className="font-bold text-gray-900" dir="ltr">11:05</span>
-                <span className="text-xs text-gray-400">Terminal 1</span>
+                <span className="font-bold text-ios-label" dir="ltr">11:05</span>
+                <span className="text-xs text-ios-gray">Terminal 1</span>
               </div>
-              <div className="text-sm text-gray-700 font-medium">Geneva Int. Airport</div>
-              <div className="mt-2 text-xs text-gray-400 flex items-center gap-2">
-                <span dir="ltr" className="bg-gray-100 px-2 py-0.5 rounded-full font-medium">A3855</span>
+              <div className="text-sm text-ios-label2 font-medium">Geneva Int. Airport</div>
+              <div className="mt-2 text-xs text-ios-gray flex items-center gap-2">
+                <span dir="ltr" className="bg-ios-gray5 px-2 py-0.5 rounded-full font-medium">A3855</span>
                 <span>Aegean Airlines</span>
                 <span>·</span>
                 <span dir="ltr">2 שעות 45 דק׳</span>
@@ -423,11 +423,11 @@ export function TripInfoTab({ trip, session, onUpdate }: Props) {
             </div>
             <div className="pb-4 flex-1">
               <div className="flex items-baseline justify-between">
-                <span className="font-bold text-gray-900" dir="ltr">14:50</span>
-                <span className="text-xs text-gray-400">Terminal 1</span>
+                <span className="font-bold text-ios-label" dir="ltr">14:50</span>
+                <span className="text-xs text-ios-gray">Terminal 1</span>
               </div>
-              <div className="text-sm text-gray-700 font-medium">Athens El. Venizelos</div>
-              <div className="mt-1.5 bg-amber-50 rounded-lg px-3 py-2 text-xs text-amber-700 font-medium">
+              <div className="text-sm text-ios-label2 font-medium">Athens El. Venizelos</div>
+              <div className="mt-1.5 bg-amber-500/10 rounded-lg px-3 py-2 text-xs text-amber-600 dark:text-amber-400 font-medium">
                 <Clock size={12} className="inline ml-1" />
                 המתנה שעה ו-20 דקות
               </div>
@@ -442,12 +442,12 @@ export function TripInfoTab({ trip, session, onUpdate }: Props) {
             </div>
             <div className="pb-4 flex-1">
               <div className="flex items-baseline justify-between">
-                <span className="font-bold text-gray-900" dir="ltr">16:10</span>
-                <span className="text-xs text-gray-400">Terminal 1</span>
+                <span className="font-bold text-ios-label" dir="ltr">16:10</span>
+                <span className="text-xs text-ios-gray">Terminal 1</span>
               </div>
-              <div className="text-sm text-gray-700 font-medium">Athens El. Venizelos</div>
-              <div className="mt-2 text-xs text-gray-400 flex items-center gap-2">
-                <span dir="ltr" className="bg-gray-100 px-2 py-0.5 rounded-full font-medium">A3926</span>
+              <div className="text-sm text-ios-label2 font-medium">Athens El. Venizelos</div>
+              <div className="mt-2 text-xs text-ios-gray flex items-center gap-2">
+                <span dir="ltr" className="bg-ios-gray5 px-2 py-0.5 rounded-full font-medium">A3926</span>
                 <span>Aegean Airlines</span>
                 <span>·</span>
                 <span dir="ltr">שעתיים</span>
@@ -462,14 +462,14 @@ export function TripInfoTab({ trip, session, onUpdate }: Props) {
             </div>
             <div className="flex-1">
               <div className="flex items-baseline justify-between">
-                <span className="font-bold text-gray-900" dir="ltr">18:10</span>
-                <span className="text-xs text-gray-400">Terminal 3</span>
+                <span className="font-bold text-ios-label" dir="ltr">18:10</span>
+                <span className="text-xs text-ios-gray">Terminal 3</span>
               </div>
-              <div className="text-sm text-gray-700 font-medium">Tel Aviv Ben Gurion</div>
+              <div className="text-sm text-ios-label2 font-medium">Tel Aviv Ben Gurion</div>
             </div>
           </div>
         </div>
-        <div className="px-4 pb-3 flex gap-3 text-xs text-gray-400">
+        <div className="px-4 pb-3 flex gap-3 text-xs text-ios-gray">
           <span>ComfortFlex · Economy</span>
           <span dir="ltr">סה״כ 6:05 שעות</span>
         </div>
