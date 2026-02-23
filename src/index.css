@@ -151,6 +151,15 @@ input, select, textarea {
   bottom: calc(4.5rem + env(safe-area-inset-bottom, 16px));
 }
 
+@media (min-width: 768px) {
+  .fab-position {
+    bottom: 2rem;
+  }
+  .ios-card {
+    transition: box-shadow 0.2s, transform 0.2s;
+  }
+}
+
 .modal-sheet {
   max-height: calc(100dvh - env(safe-area-inset-top, 20px) - 1rem);
 }

@@ -16,7 +16,7 @@ export function ConfirmSheet({ title, message, confirmLabel = 'מחק', onConfir
   }, []);
 
   return createPortal(
-    <div className="fixed inset-0 z-[9999] flex items-end justify-center" onClick={onCancel}>
+    <div className="fixed inset-0 z-[9999] flex items-end md:items-center justify-center" onClick={onCancel}>
       <div className="absolute inset-0 bg-black/40 animate-fade-in" />
       <div
         className="relative w-full max-w-[400px] px-3 pb-3 animate-slide-up"

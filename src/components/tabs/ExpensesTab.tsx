@@ -1045,9 +1045,10 @@ export function ExpensesTab({ trip, session, onUpdate }: Props) {
 
       {/* Add Purchase Modal — fullscreen iOS style, portaled to body */}
       {showAddModal && createPortal(
-        <div className="fixed inset-0 z-50 bg-ios-bg flex flex-col animate-slide-up" dir="rtl">
+        <div className="fixed inset-0 z-50 bg-ios-bg md:bg-black/50 flex flex-col md:items-center md:justify-center animate-slide-up md:animate-fade-in" dir="rtl">
+          <div className="contents md:flex md:flex-col md:w-full md:max-w-lg md:max-h-[85vh] md:rounded-2xl md:shadow-2xl md:overflow-hidden md:bg-ios-bg">
           {/* iOS Navigation Bar */}
-          <div className="shrink-0 pt-[max(0.75rem,env(safe-area-inset-top))] bg-ios-card/80 backdrop-blur-xl border-b border-ios-separator">
+          <div className="shrink-0 pt-[max(0.75rem,env(safe-area-inset-top))] md:pt-3 bg-ios-card/80 backdrop-blur-xl border-b border-ios-separator md:rounded-t-2xl">
             <div className="flex items-center justify-between px-4 h-11">
               {showForm ? (
                 <button
@@ -1260,6 +1261,7 @@ export function ExpensesTab({ trip, session, onUpdate }: Props) {
               </button>
             </div>
           )}
+        </div>
         </div>,
         document.body
       )}

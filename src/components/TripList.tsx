@@ -44,9 +44,9 @@ export function TripList({ trips, session, onAdd, onSelect, onDelete, onLogout }
 
   return (
     <div className="min-h-dvh bg-ios-bg">
-      <header className="bg-ios-card/80 backdrop-blur-xl border-b border-ios-separator px-4 pt-[max(1rem,env(safe-area-inset-top))] pb-3">
+      <header className="bg-ios-card/80 backdrop-blur-xl border-b border-ios-separator px-4 md:px-8 pt-[max(1rem,env(safe-area-inset-top))] pb-3">
         <div className="flex items-center justify-between mb-1">
-          <div className="text-xs text-ios-gray">שלום, {session.name}</div>
+          <div className="text-xs md:text-sm text-ios-gray">שלום, {session.name}</div>
           <div className="flex items-center gap-1">
             <button
               onClick={toggleTheme}
@@ -64,12 +64,12 @@ export function TripList({ trips, session, onAdd, onSelect, onDelete, onLogout }
             </button>
           </div>
         </div>
-        <h1 className="text-[28px] font-bold text-ios-label">טיולי סקי</h1>
+        <h1 className="text-[28px] md:text-[34px] font-bold text-ios-label">טיולי סקי</h1>
       </header>
 
-      <main className="px-4 pt-3 space-y-3">
+      <main className="px-4 md:px-8 pt-3 md:pt-6 space-y-3 md:space-y-0 md:grid md:grid-cols-2 lg:grid-cols-3 md:gap-5 max-w-6xl mx-auto">
         {trips.length === 0 && !showForm && (
-          <div className="text-center py-16 animate-fade-in">
+          <div className="text-center py-16 animate-fade-in md:col-span-full">
             <div className="w-16 h-16 mx-auto mb-3 bg-ios-gray5 rounded-2xl flex items-center justify-center">
               <Mountain size={32} className="text-ios-gray3" />
             </div>
@@ -86,7 +86,7 @@ export function TripList({ trips, session, onAdd, onSelect, onDelete, onLogout }
             <div
               key={trip.id}
               onClick={() => onSelect(trip.id)}
-              className={`ios-card p-4 active:bg-ios-gray6 transition-colors duration-100 cursor-pointer animate-fade-in-up stagger-${Math.min(idx + 1, 6)}`}
+              className={`ios-card p-4 active:bg-ios-gray6 md:hover:shadow-lg md:hover:-translate-y-0.5 transition-all duration-200 cursor-pointer animate-fade-in-up stagger-${Math.min(idx + 1, 6)}`}
             >
               <div className="flex items-start justify-between">
                 <div className="min-w-0 flex-1">
@@ -138,7 +138,7 @@ export function TripList({ trips, session, onAdd, onSelect, onDelete, onLogout }
         })}
 
         {showForm && (
-          <div className="ios-card p-4 space-y-3 animate-scale-in">
+          <div className="ios-card p-4 space-y-3 animate-scale-in md:col-span-full md:max-w-md">
             <input
               type="text"
               value={name}
@@ -168,7 +168,7 @@ export function TripList({ trips, session, onAdd, onSelect, onDelete, onLogout }
 
       <button
         onClick={() => setShowForm(true)}
-        className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-ios-blue text-white w-14 h-14 rounded-full shadow-lg shadow-ios-blue/30 flex items-center justify-center active:scale-90 transition-transform duration-150"
+        className="fixed bottom-6 md:bottom-8 left-1/2 -translate-x-1/2 bg-ios-blue text-white w-14 h-14 rounded-full shadow-lg shadow-ios-blue/30 flex items-center justify-center active:scale-90 md:hover:shadow-xl md:hover:scale-105 transition-all duration-150"
       >
         <Plus size={28} strokeWidth={2.5} />
       </button>

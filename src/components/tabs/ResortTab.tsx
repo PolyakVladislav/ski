@@ -279,7 +279,7 @@ export function ResortTab() {
       )}
 
       {/* Current conditions grid */}
-      <div className="grid grid-cols-2 gap-2 animate-fade-in-up stagger-2">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-4 animate-fade-in-up stagger-2">
         <div className="ios-card px-4 py-3 flex items-center gap-3">
           <Wind size={20} className="text-ios-blue shrink-0" />
           <div>
@@ -412,7 +412,7 @@ export function ResortTab() {
       {/* Useful links */}
       <div className="animate-fade-in-up stagger-5">
         <p className="text-[13px] font-medium text-ios-gray px-1 pb-2">קישורים שימושיים</p>
-        <div className="ios-card overflow-hidden">
+        <div className="ios-card overflow-hidden md:grid md:grid-cols-2">
           {USEFUL_LINKS.map((link, i) => {
             const Icon = link.icon;
             return (

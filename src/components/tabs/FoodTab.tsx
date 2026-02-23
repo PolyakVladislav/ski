@@ -207,7 +207,7 @@ export function FoodTab({ trip: _trip, session: _session, onUpdate: _onUpdate }:
 
       {/* Restaurant cards */}
       {!loading && !error && places.length > 0 && (
-        <div className="space-y-3 animate-fade-in-up stagger-1">
+        <div className="space-y-3 md:space-y-0 md:grid md:grid-cols-2 lg:grid-cols-3 md:gap-4 animate-fade-in-up stagger-1">
           {places.map((place) => {
             const photo = place.photos?.[0];
             const price = place.priceLevel ? PRICE_MAP[place.priceLevel] : '';
@@ -215,7 +215,7 @@ export function FoodTab({ trip: _trip, session: _session, onUpdate: _onUpdate }:
             const expanded = expandedId === place.id;
 
             return (
-              <div key={place.id} className="ios-card overflow-hidden">
+              <div key={place.id} className="ios-card overflow-hidden md:hover:shadow-lg md:hover:-translate-y-0.5 transition-all duration-200">
                 <button
                   onClick={() => setExpandedId(expanded ? null : place.id)}
                   className="w-full text-right active:bg-ios-gray6 transition-colors"
