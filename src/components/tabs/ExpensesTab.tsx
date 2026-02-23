@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import type { Trip, Expense, UserSession } from '../../types';
 import { generateId } from '../../store';
 import {
@@ -1029,259 +1030,250 @@ export function ExpensesTab({ trip, session, onUpdate }: Props) {
         <Plus size={28} strokeWidth={2.5} />
       </button>
 
-      {/* Add Purchase Modal */}
-      {showAddModal && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center">
-          <div
-            className="absolute inset-0 bg-black/40 backdrop-blur-sm animate-fade-in"
-            onClick={closeAddModal}
-          />
-          <div className="relative w-full max-w-lg bg-ios-bg rounded-t-3xl animate-slide-up flex flex-col modal-sheet">
-            <div className="shrink-0 px-5 pt-3 pb-2 border-b border-ios-separator">
-              <div className="w-10 h-1 bg-ios-gray4 rounded-full mx-auto mb-3" />
-              <div className="flex items-center justify-between">
-                <h2 className="text-lg font-bold text-ios-label">הוצאה חדשה</h2>
-                <button
-                  onClick={closeAddModal}
-                  className="w-8 h-8 bg-ios-gray5 rounded-full flex items-center justify-center active:bg-ios-gray4 transition-colors"
-                >
-                  <X size={16} className="text-ios-gray" />
-                </button>
-              </div>
-            </div>
+      {/* Add Purchase Modal — fullscreen, portaled to body */}
+      {showAddModal && createPortal(
+        <div className="fixed inset-0 z-50 bg-ios-bg flex flex-col animate-slide-up">
+          <div className="shrink-0 px-5 pt-[max(0.75rem,env(safe-area-inset-top))] pb-2 border-b border-ios-separator flex items-center justify-between">
+            <h2 className="text-lg font-bold text-ios-label">הוצאה חדשה</h2>
+            <button
+              onClick={closeAddModal}
+              className="w-8 h-8 bg-ios-gray5 rounded-full flex items-center justify-center active:bg-ios-gray4 transition-colors"
+            >
+              <X size={16} className="text-ios-gray" />
+            </button>
+          </div>
 
-            <div className={`flex-1 overflow-y-auto overscroll-contain p-5 space-y-4 ${!showForm ? 'pb-16' : 'pb-2'}`}>
-              {!showForm ? (
-                <>
-                  <div className="grid grid-cols-2 gap-2">
-                    {PURCHASE_TEMPLATES.map((tpl) => {
-                      const Icon = tpl.icon;
+          <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-5 space-y-4">
+            {!showForm ? (
+              <>
+                <div className="grid grid-cols-2 gap-2">
+                  {PURCHASE_TEMPLATES.map((tpl) => {
+                    const Icon = tpl.icon;
+                    return (
+                      <button
+                        key={tpl.label}
+                        onClick={() => openForm(tpl)}
+                        className="flex items-center gap-3 ios-card px-4 py-3.5 active:scale-[0.97] transition-all duration-150 text-right"
+                      >
+                        <div
+                          className={`w-9 h-9 rounded-xl bg-gradient-to-br ${tpl.color} flex items-center justify-center text-white shrink-0`}
+                        >
+                          <Icon size={18} />
+                        </div>
+                        <span className="text-sm font-medium text-ios-label truncate">
+                          {tpl.label}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+                <button
+                  onClick={() => openForm(null)}
+                  className="w-full flex items-center justify-center gap-2 ios-card p-4 text-ios-blue font-semibold active:bg-ios-gray6 active:scale-[0.98] transition-all"
+                >
+                  <Pencil size={16} />
+                  הוצאה מותאמת אישית
+                </button>
+              </>
+            ) : (
+              <div className="space-y-4 animate-fade-in">
+                {activeTemplate && (
+                  <div className="flex items-center gap-3">
+                    <div
+                      className={`w-10 h-10 rounded-xl bg-gradient-to-br ${activeTemplate.color} flex items-center justify-center text-white`}
+                    >
+                      <activeTemplate.icon size={20} />
+                    </div>
+                    <span className="font-bold text-ios-label text-lg">
+                      {activeTemplate.label}
+                    </span>
+                    <button
+                      onClick={() => { resetForm(); }}
+                      className="me-auto text-ios-blue text-sm font-medium"
+                    >
+                      שנה
+                    </button>
+                  </div>
+                )}
+
+                {customMode && (
+                  <input
+                    type="text"
+                    value={desc}
+                    onChange={(e) => {
+                      setDesc(e.target.value);
+                      setValidationError('');
+                    }}
+                    placeholder="תיאור ההוצאה..."
+                    autoFocus
+                    className="w-full bg-ios-gray6 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-ios-blue/30 placeholder:text-ios-gray3 transition-all"
+                  />
+                )}
+
+                <div>
+                  <div className="flex gap-2" dir="ltr">
+                    <div className="flex items-center gap-1 flex-1 bg-ios-gray6 rounded-xl px-4 py-4 focus-within:ring-2 focus-within:ring-ios-blue/30 transition-all">
+                      <span className="text-ios-gray3 text-2xl font-bold shrink-0">
+                        {currencySymbol(currency)}
+                      </span>
+                      <input
+                        type="number"
+                        inputMode="decimal"
+                        value={amount}
+                        onChange={(e) => {
+                          setAmount(e.target.value);
+                          setValidationError('');
+                        }}
+                        placeholder="0"
+                        autoFocus={!customMode}
+                        dir="ltr"
+                        className="w-full bg-transparent text-left text-2xl font-bold text-ios-label placeholder:text-ios-gray3 focus:outline-none"
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') submitExpense();
+                        }}
+                      />
+                    </div>
+                    <CurrencyToggle
+                      currency={currency}
+                      onChange={setCurrency}
+                    />
+                  </div>
+                  {amount && parseFloat(amount) > 0 && (
+                    <div className="text-xs text-ios-gray mt-1.5 text-left" dir="ltr">
+                      {formatConversion(parseFloat(amount), currency)}
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <p className="text-xs font-semibold text-ios-gray mb-2">
+                    מי שילם?
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {trip.people.map((p, idx) => {
+                      const selected = paidBy.includes(p.id);
                       return (
                         <button
-                          key={tpl.label}
-                          onClick={() => openForm(tpl)}
-                          className="flex items-center gap-3 ios-card px-4 py-3.5 active:scale-[0.97] transition-all duration-150 text-right"
+                          key={p.id}
+                          onClick={() => {
+                            togglePaidBy(p.id);
+                            setValidationError('');
+                          }}
+                          className={`flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-medium transition-all duration-200 ${
+                            selected
+                              ? `bg-gradient-to-l ${AVATAR_COLORS[idx % AVATAR_COLORS.length]} text-white shadow-sm scale-105`
+                              : 'bg-ios-gray5 text-ios-label3 active:bg-ios-gray4 active:scale-95'
+                          }`}
                         >
                           <div
-                            className={`w-9 h-9 rounded-xl bg-gradient-to-br ${tpl.color} flex items-center justify-center text-white shrink-0`}
+                            className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${
+                              selected
+                                ? 'bg-white/25 text-white'
+                                : `bg-gradient-to-br ${AVATAR_COLORS[idx % AVATAR_COLORS.length]} text-white`
+                            }`}
                           >
-                            <Icon size={18} />
+                            {p.name.charAt(0)}
                           </div>
-                          <span className="text-sm font-medium text-ios-label truncate">
-                            {tpl.label}
-                          </span>
+                          {p.name}
                         </button>
                       );
                     })}
                   </div>
-                  <button
-                    onClick={() => openForm(null)}
-                    className="w-full flex items-center justify-center gap-2 ios-card p-4 text-ios-blue font-semibold active:bg-ios-gray6 active:scale-[0.98] transition-all"
-                  >
-                    <Pencil size={16} />
-                    הוצאה מותאמת אישית
-                  </button>
-                </>
-              ) : (
-                <div className="space-y-4 animate-fade-in">
-                  {activeTemplate && (
-                    <div className="flex items-center gap-3">
-                      <div
-                        className={`w-10 h-10 rounded-xl bg-gradient-to-br ${activeTemplate.color} flex items-center justify-center text-white`}
-                      >
-                        <activeTemplate.icon size={20} />
-                      </div>
-                      <span className="font-bold text-ios-label text-lg">
-                        {activeTemplate.label}
-                      </span>
-                      <button
-                        onClick={() => { resetForm(); }}
-                        className="me-auto text-ios-blue text-sm font-medium"
-                      >
-                        שנה
-                      </button>
-                    </div>
-                  )}
+                </div>
 
-                  {customMode && (
-                    <input
-                      type="text"
-                      value={desc}
-                      onChange={(e) => {
-                        setDesc(e.target.value);
-                        setValidationError('');
-                      }}
-                      placeholder="תיאור ההוצאה..."
-                      autoFocus
-                      className="w-full bg-ios-gray6 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-ios-blue/30 placeholder:text-ios-gray3 transition-all"
-                    />
-                  )}
-
-                  <div>
-                    <div className="flex gap-2">
-                      <div className="relative flex-1">
-                        <span className="absolute start-4 top-1/2 -translate-y-1/2 text-ios-gray3 text-lg font-bold pointer-events-none">
-                          {currencySymbol(currency)}
-                        </span>
-                        <input
-                          type="number"
-                          inputMode="decimal"
-                          value={amount}
-                          onChange={(e) => {
-                            setAmount(e.target.value);
+                <div>
+                  <p className="text-xs font-semibold text-ios-gray mb-2">
+                    לחלק בין:
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {trip.people.map((p, idx) => {
+                      const selected = splitBetween.includes(p.id);
+                      return (
+                        <button
+                          key={p.id}
+                          onClick={() => {
+                            toggleSplit(p.id);
                             setValidationError('');
                           }}
-                          placeholder="0"
-                          autoFocus={!customMode}
-                          dir="ltr"
-                          className="w-full bg-ios-gray6 rounded-xl ps-10 pe-4 py-4 focus:outline-none focus:ring-2 focus:ring-ios-blue/30 text-left text-2xl font-bold text-ios-label placeholder:text-ios-gray3 transition-all"
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') submitExpense();
-                          }}
-                        />
-                      </div>
-                      <CurrencyToggle
-                        currency={currency}
-                        onChange={setCurrency}
-                      />
-                    </div>
-                    {amount && parseFloat(amount) > 0 && (
-                      <div className="text-xs text-ios-gray mt-1.5 text-left" dir="ltr">
-                        {formatConversion(parseFloat(amount), currency)}
-                      </div>
-                    )}
-                  </div>
-
-                  <div>
-                    <p className="text-xs font-semibold text-ios-gray mb-2">
-                      מי שילם?
-                    </p>
-                    <div className="flex flex-wrap gap-2">
-                      {trip.people.map((p, idx) => {
-                        const selected = paidBy.includes(p.id);
-                        return (
-                          <button
-                            key={p.id}
-                            onClick={() => {
-                              togglePaidBy(p.id);
-                              setValidationError('');
-                            }}
-                            className={`flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-medium transition-all duration-200 ${
-                              selected
-                                ? `bg-gradient-to-l ${AVATAR_COLORS[idx % AVATAR_COLORS.length]} text-white shadow-sm scale-105`
-                                : 'bg-ios-gray5 text-ios-label3 active:bg-ios-gray4 active:scale-95'
-                            }`}
-                          >
-                            <div
-                              className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${
-                                selected
-                                  ? 'bg-white/25 text-white'
-                                  : `bg-gradient-to-br ${AVATAR_COLORS[idx % AVATAR_COLORS.length]} text-white`
-                              }`}
-                            >
-                              {p.name.charAt(0)}
-                            </div>
-                            {p.name}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  <div>
-                    <p className="text-xs font-semibold text-ios-gray mb-2">
-                      לחלק בין:
-                    </p>
-                    <div className="flex flex-wrap gap-2">
-                      {trip.people.map((p, idx) => {
-                        const selected = splitBetween.includes(p.id);
-                        return (
-                          <button
-                            key={p.id}
-                            onClick={() => {
-                              toggleSplit(p.id);
-                              setValidationError('');
-                            }}
-                            className={`flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-medium transition-all duration-200 ${
-                              selected
-                                ? `bg-gradient-to-l ${AVATAR_COLORS[idx % AVATAR_COLORS.length]} text-white shadow-sm scale-105`
-                                : 'bg-ios-gray5 text-ios-label3 active:bg-ios-gray4 active:scale-95'
-                            }`}
-                          >
-                            <div
-                              className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${
-                                selected
-                                  ? 'bg-white/25 text-white'
-                                  : `bg-gradient-to-br ${AVATAR_COLORS[idx % AVATAR_COLORS.length]} text-white`
-                              }`}
-                            >
-                              {p.name.charAt(0)}
-                            </div>
-                            {p.name}
-                          </button>
-                        );
-                      })}
-                      {splitBetween.length < trip.people.length && (
-                        <button
-                          onClick={() =>
-                            setSplitBetween(trip.people.map((p) => p.id))
-                          }
-                          className="px-4 py-2.5 rounded-full text-sm font-medium text-ios-blue bg-ios-blue/10 active:bg-ios-blue/20 active:scale-95 transition-all"
+                          className={`flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-medium transition-all duration-200 ${
+                            selected
+                              ? `bg-gradient-to-l ${AVATAR_COLORS[idx % AVATAR_COLORS.length]} text-white shadow-sm scale-105`
+                              : 'bg-ios-gray5 text-ios-label3 active:bg-ios-gray4 active:scale-95'
+                          }`}
                         >
-                          כולם
-                        </button>
-                      )}
-                    </div>
-                  </div>
-
-                  {amount &&
-                    splitBetween.length > 0 &&
-                    parseFloat(amount) > 0 && (
-                      <div className="bg-ios-gray6 rounded-xl px-4 py-2.5 text-center animate-fade-in">
-                        <span className="text-sm text-ios-gray">
-                          <span
-                            className="font-bold text-ios-label"
-                            dir="ltr"
+                          <div
+                            className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${
+                              selected
+                                ? 'bg-white/25 text-white'
+                                : `bg-gradient-to-br ${AVATAR_COLORS[idx % AVATAR_COLORS.length]} text-white`
+                            }`}
                           >
-                            {currencySymbol(currency)}
-                            {Math.round(
-                              parseFloat(amount) / splitBetween.length
-                            ).toLocaleString()}
-                          </span>{' '}
-                          לאדם
-                        </span>
-                      </div>
+                            {p.name.charAt(0)}
+                          </div>
+                          {p.name}
+                        </button>
+                      );
+                    })}
+                    {splitBetween.length < trip.people.length && (
+                      <button
+                        onClick={() =>
+                          setSplitBetween(trip.people.map((p) => p.id))
+                        }
+                        className="px-4 py-2.5 rounded-full text-sm font-medium text-ios-blue bg-ios-blue/10 active:bg-ios-blue/20 active:scale-95 transition-all"
+                      >
+                        כולם
+                      </button>
                     )}
+                  </div>
+                </div>
 
-                  {validationError && (
-                    <div className="text-center text-sm text-ios-red font-medium animate-scale-in">
-                      {validationError}
+                {amount &&
+                  splitBetween.length > 0 &&
+                  parseFloat(amount) > 0 && (
+                    <div className="bg-ios-gray6 rounded-xl px-4 py-2.5 text-center animate-fade-in">
+                      <span className="text-sm text-ios-gray">
+                        <span
+                          className="font-bold text-ios-label"
+                          dir="ltr"
+                        >
+                          {currencySymbol(currency)}
+                          {Math.round(
+                            parseFloat(amount) / splitBetween.length
+                          ).toLocaleString()}
+                        </span>{' '}
+                        לאדם
+                      </span>
                     </div>
                   )}
-                </div>
-              )}
-            </div>
 
-            {/* Fixed footer with submit button */}
-            {showForm && (
-              <div className="shrink-0 px-5 pt-3 pb-10 border-t border-ios-separator bg-ios-bg">
-                <button
-                  onClick={() => {
-                    if (submitExpense()) setShowAddModal(false);
-                  }}
-                  className="w-full bg-ios-blue text-white font-semibold py-3.5 rounded-xl active:opacity-80 transition-opacity"
-                >
-                  הוסף{' '}
-                  {activeTemplate
-                    ? `"${activeTemplate.label}"`
-                    : desc.trim()
-                      ? `"${desc.trim()}"`
-                      : 'הוצאה'}
-                </button>
+                {validationError && (
+                  <div className="text-center text-sm text-ios-red font-medium animate-scale-in">
+                    {validationError}
+                  </div>
+                )}
               </div>
             )}
           </div>
-        </div>
+
+          {showForm && (
+            <div className="shrink-0 px-5 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] border-t border-ios-separator bg-ios-bg">
+              <button
+                onClick={() => {
+                  if (submitExpense()) setShowAddModal(false);
+                }}
+                className="w-full bg-ios-blue text-white font-semibold py-3.5 rounded-xl active:opacity-80 transition-opacity"
+              >
+                הוסף{' '}
+                {activeTemplate
+                  ? `"${activeTemplate.label}"`
+                  : desc.trim()
+                    ? `"${desc.trim()}"`
+                    : 'הוצאה'}
+              </button>
+            </div>
+          )}
+        </div>,
+        document.body
       )}
     </div>
   );

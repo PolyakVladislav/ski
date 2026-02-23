@@ -16,6 +16,7 @@ export function PackingTab({ trip, session, onUpdate }: Props) {
   const [newItemName, setNewItemName] = useState('');
   const [newItemCategory, setNewItemCategory] = useState('');
   const [showForm, setShowForm] = useState(false);
+  const [addError, setAddError] = useState('');
   const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(
     new Set()
   );
@@ -64,16 +65,34 @@ export function PackingTab({ trip, session, onUpdate }: Props) {
     });
   }
 
+  function setQuantity(id: string, qty: number) {
+    if (qty < 1) qty = 1;
+    onUpdate({
+      ...trip,
+      packingItems: trip.packingItems.map((i) =>
+        i.id === id ? { ...i, quantity: qty } : i
+      ),
+    });
+  }
+
   function addItem() {
     const name = newItemName.trim();
     const category = newItemCategory.trim();
-    if (!name || !category) return;
+    if (!category || category === '__new__') {
+      setAddError('בחר קטגוריה');
+      return;
+    }
+    if (!name) {
+      setAddError('הזן שם פריט');
+      return;
+    }
+    setAddError('');
     const newItem: PackingItem = {
       id: generateId(),
       category,
       name,
       checked: false,
-      assignedTo: viewMode === 'mine' ? myId : undefined,
+      assignedTo: viewMode === 'mine' ? myId ?? '' : '',
     };
     onUpdate({ ...trip, packingItems: [...trip.packingItems, newItem] });
     setNewItemName('');
@@ -223,6 +242,8 @@ export function PackingTab({ trip, session, onUpdate }: Props) {
                       ? getPersonName(item.checkedBy) || ''
                       : '';
 
+                  const qty = item.quantity ?? 1;
+
                   return (
                     <div
                       key={item.id}
@@ -253,20 +274,47 @@ export function PackingTab({ trip, session, onUpdate }: Props) {
                       </button>
                       <div className="flex-1 min-w-0">
                         <span
-                          className={`block text-[15px] transition-all duration-200 ${
+                          className={`text-[15px] transition-all duration-200 ${
                             item.checked
                               ? 'line-through text-ios-gray3'
                               : 'text-ios-label'
                           }`}
                         >
                           {item.name}
+                          {qty > 1 && item.checked && (
+                            <span className="text-[12px] text-ios-gray3 font-medium mr-1">
+                              ×{qty}
+                            </span>
+                          )}
                         </span>
                         {checkerName && (
-                          <span className="text-[11px] text-ios-blue font-medium">
+                          <span className="text-[11px] text-ios-blue font-medium block">
                             ✓ {checkerName}
                           </span>
                         )}
                       </div>
+                      {!item.checked && (
+                        <div className="flex items-center gap-0.5 shrink-0">
+                          {qty > 1 && (
+                            <button
+                              onClick={() => setQuantity(item.id, qty - 1)}
+                              className="w-6 h-6 rounded-full bg-ios-gray5 flex items-center justify-center text-ios-gray text-[14px] font-bold active:bg-ios-gray4 transition-colors"
+                            >
+                              −
+                            </button>
+                          )}
+                          <button
+                            onClick={() => setQuantity(item.id, qty + 1)}
+                            className={`min-w-[24px] h-6 rounded-full flex items-center justify-center text-[12px] font-bold active:bg-ios-gray4 transition-colors ${
+                              qty > 1
+                                ? 'bg-ios-blue/10 text-ios-blue px-1.5'
+                                : 'bg-ios-gray5 text-ios-gray3'
+                            }`}
+                          >
+                            {qty > 1 ? `×${qty}` : '+'}
+                          </button>
+                        </div>
+                      )}
                       <button
                         onClick={() => removeItem(item.id)}
                         className="text-ios-gray4 active:text-ios-red text-lg px-1 transition-colors duration-150"
@@ -292,7 +340,7 @@ export function PackingTab({ trip, session, onUpdate }: Props) {
           </div>
           <select
             value={newItemCategory}
-            onChange={(e) => setNewItemCategory(e.target.value)}
+            onChange={(e) => { setNewItemCategory(e.target.value); setAddError(''); }}
             className="w-full bg-ios-gray6 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-ios-blue/30 transition-all"
           >
             <option value="">בחר קטגוריה...</option>
@@ -312,12 +360,17 @@ export function PackingTab({ trip, session, onUpdate }: Props) {
           <input
             type="text"
             value={newItemName}
-            onChange={(e) => setNewItemName(e.target.value)}
+            onChange={(e) => { setNewItemName(e.target.value); setAddError(''); }}
             onKeyDown={(e) => e.key === 'Enter' && addItem()}
             placeholder="שם הפריט..."
             autoFocus
             className="w-full bg-ios-gray6 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-ios-blue/30 placeholder:text-ios-gray3"
           />
+          {addError && (
+            <div className="text-center text-sm text-ios-red font-medium animate-scale-in">
+              {addError}
+            </div>
+          )}
           <div className="flex gap-2">
             <button
               onClick={addItem}
@@ -330,6 +383,7 @@ export function PackingTab({ trip, session, onUpdate }: Props) {
                 setShowForm(false);
                 setNewItemName('');
                 setNewItemCategory('');
+                setAddError('');
               }}
               className="px-4 py-3 text-ios-blue rounded-xl active:bg-ios-gray6 transition-colors"
             >

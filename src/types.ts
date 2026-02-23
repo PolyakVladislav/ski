@@ -11,6 +11,7 @@ export interface PackingItem {
   checked: boolean;
   assignedTo?: string;
   checkedBy?: string;
+  quantity?: number;
 }
 
 export interface Expense {

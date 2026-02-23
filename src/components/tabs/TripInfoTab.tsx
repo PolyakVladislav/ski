@@ -7,7 +7,6 @@ import {
   MapPin,
   Clock,
   Users,
-  Wallet,
   Calendar,
   ChevronDown,
   UserPlus,
@@ -52,7 +51,6 @@ export function TripInfoTab({ trip, session, onUpdate }: Props) {
   }
 
   const isMeInTrip = trip.people.some((p) => p.phone === session.phone);
-  const totalExpenses = trip.expenses.reduce((s, e) => s + e.amount, 0);
 
   function addPerson() {
     const trimmedName = personName.trim();
@@ -131,12 +129,6 @@ export function TripInfoTab({ trip, session, onUpdate }: Props) {
               <Users size={14} />
               {trip.people.length} משתתפים
             </span>
-            {totalExpenses > 0 && (
-              <span className="flex items-center gap-1.5">
-                <Wallet size={14} />
-                <span dir="ltr">₪{totalExpenses.toLocaleString()}</span>
-              </span>
-            )}
           </div>
         </div>
       </div>
