@@ -25,6 +25,7 @@ import {
   CheckCircle,
   Check,
   ChevronLeft,
+  Smartphone,
 } from 'lucide-react';
 
 interface Props {
@@ -88,6 +89,7 @@ const FIXED_COSTS: FixedCostDef[] = [
   { type: 'transfer', label: 'הסעה', icon: Bus, color: 'from-orange-400 to-amber-500', shared: false },
   { type: 'skipass', label: 'סקי פס', icon: Ticket, color: 'from-cyan-400 to-sky-500', shared: false },
   { type: 'rental', label: 'השכרת ציוד', icon: Snowflake, color: 'from-indigo-400 to-blue-500', shared: false },
+  { type: 'esim', label: 'e-SIM', icon: Smartphone, color: 'from-lime-400 to-green-500', shared: false },
 ];
 
 interface PurchaseTemplate {
@@ -223,7 +225,7 @@ export function ExpensesTab({ trip, session, onUpdate }: Props) {
   const [fixedInputs, setFixedInputs] = useState<Record<string, string>>({});
   const [fixedCurrencies, setFixedCurrencies] = useState<Record<string, Currency>>({});
   const [expandedFixed, setExpandedFixed] = useState<Set<string>>(new Set());
-  const [showFixedCosts, setShowFixedCosts] = useState(true);
+  const [showFixedCosts, setShowFixedCosts] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [expandedPurchase, setExpandedPurchase] = useState<string | null>(null);
   const [editingExpense, setEditingExpense] = useState<string | null>(null);
@@ -523,11 +525,13 @@ export function ExpensesTab({ trip, session, onUpdate }: Props) {
       <div className="animate-fade-in-up stagger-3">
         <button
           onClick={() => setShowFixedCosts(!showFixedCosts)}
-          className="w-full flex items-center justify-between mb-3"
+          className={`w-full flex items-center justify-between rounded-xl px-4 py-3 transition-colors ${
+            showFixedCosts ? 'mb-3' : 'ios-card'
+          }`}
         >
-          <h3 className="text-xs font-semibold text-ios-gray flex items-center gap-1.5">
+          <h3 className={`text-sm font-semibold flex items-center gap-2 ${showFixedCosts ? 'text-ios-gray' : 'text-ios-label'}`}>
             עלויות הטיול
-            <span className="text-ios-gray3" dir="ltr">
+            <span className="text-ios-gray3 font-normal" dir="ltr">
               {fmtEur(fixedTotalEur)}
             </span>
           </h3>
@@ -536,7 +540,7 @@ export function ExpensesTab({ trip, session, onUpdate }: Props) {
               showFixedCosts ? 'rotate-180' : ''
             }`}
           >
-            <ChevronDown size={14} className="text-ios-gray3" />
+            <ChevronDown size={16} className={showFixedCosts ? 'text-ios-gray3' : 'text-ios-blue'} />
           </div>
         </button>
         {showFixedCosts && <div className="space-y-2 animate-slide-down">
