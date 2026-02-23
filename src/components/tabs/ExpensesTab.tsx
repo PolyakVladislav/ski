@@ -1,0 +1,1279 @@
+import { useState } from 'react';
+import type { Trip, Expense, UserSession } from '../../types';
+import { generateId } from '../../store';
+import {
+  Plus,
+  Trash2,
+  ArrowLeft,
+  Receipt,
+  TrendingUp,
+  Coffee,
+  UtensilsCrossed,
+  Wine,
+  Ticket,
+  ShoppingBag,
+  Fuel,
+  Car,
+  Hotel,
+  Pencil,
+  X,
+  Shield,
+  Plane,
+  Bus,
+  ChevronDown,
+  Snowflake,
+  CheckCircle,
+} from 'lucide-react';
+
+interface Props {
+  trip: Trip;
+  session: UserSession;
+  onUpdate: (trip: Trip) => void;
+}
+
+interface Debt {
+  from: string;
+  to: string;
+  amount: number;
+}
+
+const EUR_TO_ILS = 3.67;
+const USD_TO_ILS = 3.10;
+const USD_TO_EUR = USD_TO_ILS / EUR_TO_ILS;
+
+type Currency = 'EUR' | 'ILS' | 'USD';
+
+function toEur(amount: number, currency: Currency): number {
+  if (currency === 'EUR') return amount;
+  if (currency === 'ILS') return amount / EUR_TO_ILS;
+  return amount * USD_TO_EUR;
+}
+
+function toIls(amount: number, currency: Currency): number {
+  if (currency === 'ILS') return amount;
+  if (currency === 'EUR') return amount * EUR_TO_ILS;
+  return amount * USD_TO_ILS;
+}
+
+function currencySymbol(c: Currency): string {
+  if (c === 'EUR') return '€';
+  if (c === 'USD') return '$';
+  return '₪';
+}
+
+const CURRENCY_ORDER: Currency[] = ['EUR', 'ILS', 'USD'];
+function nextCurrency(c: Currency): Currency {
+  const idx = CURRENCY_ORDER.indexOf(c);
+  return CURRENCY_ORDER[(idx + 1) % CURRENCY_ORDER.length];
+}
+
+interface FixedCostDef {
+  type: string;
+  label: string;
+  icon: typeof Hotel;
+  color: string;
+  shared: boolean;
+}
+
+const FIXED_COSTS: FixedCostDef[] = [
+  { type: 'apartment', label: 'דירה', icon: Hotel, color: 'from-teal-400 to-emerald-500', shared: true },
+  { type: 'tickets', label: 'כרטיסי טיסה', icon: Plane, color: 'from-sky-400 to-blue-500', shared: false },
+  { type: 'insurance', label: 'ביטוח', icon: Shield, color: 'from-violet-400 to-purple-500', shared: false },
+  { type: 'transfer', label: 'הסעה', icon: Bus, color: 'from-orange-400 to-amber-500', shared: false },
+  { type: 'skipass', label: 'סקי פס', icon: Ticket, color: 'from-cyan-400 to-sky-500', shared: false },
+  { type: 'rental', label: 'השכרת ציוד', icon: Snowflake, color: 'from-indigo-400 to-blue-500', shared: false },
+];
+
+interface PurchaseTemplate {
+  label: string;
+  icon: typeof Coffee;
+  color: string;
+}
+
+const PURCHASE_TEMPLATES: PurchaseTemplate[] = [
+  { label: 'ארוחת בוקר', icon: Coffee, color: 'from-amber-400 to-orange-400' },
+  { label: 'ארוחת צהריים', icon: UtensilsCrossed, color: 'from-green-400 to-emerald-500' },
+  { label: 'ארוחת ערב', icon: UtensilsCrossed, color: 'from-indigo-400 to-blue-500' },
+  { label: 'חטיף / פרקוס', icon: ShoppingBag, color: 'from-pink-400 to-rose-500' },
+  { label: 'שתייה / אלכוהול', icon: Wine, color: 'from-purple-400 to-violet-500' },
+  { label: 'סופר / קניות', icon: ShoppingBag, color: 'from-rose-400 to-red-500' },
+];
+
+const AVATAR_COLORS = [
+  'from-sky-400 to-blue-500',
+  'from-violet-400 to-purple-500',
+  'from-rose-400 to-pink-500',
+  'from-amber-400 to-orange-500',
+  'from-emerald-400 to-green-500',
+  'from-cyan-400 to-teal-500',
+];
+
+function getPayers(paidBy: string | string[]): string[] {
+  return Array.isArray(paidBy) ? paidBy : [paidBy];
+}
+
+function calculateDebts(trip: Trip): Debt[] {
+  const balances = new Map<string, number>();
+  trip.people.forEach((p) => balances.set(p.id, 0));
+
+  for (const exp of trip.expenses) {
+    const amountEur = toEur(exp.amount, exp.currency ?? 'ILS');
+    const payers = getPayers(exp.paidBy);
+    const perPayer = amountEur / payers.length;
+    const share = amountEur / exp.splitBetween.length;
+    for (const payer of payers) {
+      balances.set(payer, (balances.get(payer) ?? 0) + perPayer);
+    }
+    for (const pid of exp.splitBetween) {
+      balances.set(pid, (balances.get(pid) ?? 0) - share);
+    }
+  }
+
+  const debtors: { id: string; amount: number }[] = [];
+  const creditors: { id: string; amount: number }[] = [];
+
+  for (const [id, bal] of balances) {
+    if (bal < -0.01) debtors.push({ id, amount: -bal });
+    else if (bal > 0.01) creditors.push({ id, amount: bal });
+  }
+
+  debtors.sort((a, b) => b.amount - a.amount);
+  creditors.sort((a, b) => b.amount - a.amount);
+
+  const debts: Debt[] = [];
+  let di = 0;
+  let ci = 0;
+
+  while (di < debtors.length && ci < creditors.length) {
+    const transfer = Math.min(debtors[di].amount, creditors[ci].amount);
+    if (transfer > 0.01) {
+      debts.push({
+        from: debtors[di].id,
+        to: creditors[ci].id,
+        amount: Math.round(transfer * 100) / 100,
+      });
+    }
+    debtors[di].amount -= transfer;
+    creditors[ci].amount -= transfer;
+    if (debtors[di].amount < 0.01) di++;
+    if (creditors[ci].amount < 0.01) ci++;
+  }
+
+  return debts;
+}
+
+function formatTime(iso: string): string {
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return '';
+  return d.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
+}
+
+function formatDate(iso: string): string {
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return iso;
+  return d.toLocaleDateString('he-IL', { day: 'numeric', month: 'short' });
+}
+
+function fmtEur(n: number): string {
+  return `€${Math.round(n).toLocaleString()}`;
+}
+
+function fmtIls(n: number): string {
+  return `₪${Math.round(n).toLocaleString()}`;
+}
+
+function fmtUsd(n: number): string {
+  return `$${Math.round(n).toLocaleString()}`;
+}
+
+function formatConversion(amount: number, from: Currency): string {
+  const eur = toEur(amount, from);
+  const ils = toIls(amount, from);
+  const parts: string[] = [];
+  if (from !== 'EUR') parts.push(fmtEur(eur));
+  if (from !== 'ILS') parts.push(fmtIls(ils));
+  if (from !== 'USD') parts.push(fmtUsd(eur / USD_TO_EUR));
+  return parts.join(' · ');
+}
+
+export function ExpensesTab({ trip, session, onUpdate }: Props) {
+  const [activeTemplate, setActiveTemplate] = useState<PurchaseTemplate | null>(null);
+  const [customMode, setCustomMode] = useState(false);
+  const [desc, setDesc] = useState('');
+  const [amount, setAmount] = useState('');
+  const [currency, setCurrency] = useState<Currency>('EUR');
+  const [paidBy, setPaidBy] = useState<string[]>([]);
+  const [splitBetween, setSplitBetween] = useState<string[]>([]);
+  const [validationError, setValidationError] = useState('');
+  const [fixedInputs, setFixedInputs] = useState<Record<string, string>>({});
+  const [fixedCurrencies, setFixedCurrencies] = useState<Record<string, Currency>>({});
+  const [expandedFixed, setExpandedFixed] = useState<Set<string>>(new Set());
+  const [showFixedCosts, setShowFixedCosts] = useState(true);
+  const [showAddModal, setShowAddModal] = useState(false);
+
+  const totalEur = trip.expenses.reduce(
+    (s, e) => s + toEur(e.amount, e.currency ?? 'ILS'),
+    0
+  );
+  const totalIls = totalEur * EUR_TO_ILS;
+  const perPersonEur =
+    trip.people.length > 0 ? totalEur / trip.people.length : 0;
+
+  const debts = calculateDebts(trip);
+  const showForm = activeTemplate !== null || customMode;
+
+  function openAddModal() {
+    resetForm();
+    setShowAddModal(true);
+  }
+
+  function closeAddModal() {
+    resetForm();
+    setShowAddModal(false);
+  }
+
+  function getPersonName(id: string): string {
+    return trip.people.find((p) => p.id === id)?.name ?? '?';
+  }
+
+  function getPersonIndex(id: string): number {
+    return trip.people.findIndex((p) => p.id === id);
+  }
+
+  function getPersonSpending(personId: string): {
+    paidEur: number;
+    owesEur: number;
+  } {
+    let paidEur = 0;
+    let owesEur = 0;
+    for (const exp of trip.expenses) {
+      const amtEur = toEur(exp.amount, exp.currency ?? 'ILS');
+      const payers = getPayers(exp.paidBy);
+      if (payers.includes(personId)) paidEur += amtEur / payers.length;
+      if (exp.splitBetween.includes(personId)) {
+        owesEur += amtEur / exp.splitBetween.length;
+      }
+    }
+    return { paidEur: Math.round(paidEur), owesEur: Math.round(owesEur) };
+  }
+
+  function toggleSplit(id: string) {
+    setSplitBetween((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
+  }
+
+  function openForm(template: PurchaseTemplate | null) {
+    const firstPerson = trip.people[0]?.id;
+    setActiveTemplate(template);
+    setCustomMode(!template);
+    setSplitBetween(trip.people.map((p) => p.id));
+    setPaidBy(firstPerson ? [firstPerson] : []);
+    setAmount('');
+    setCurrency('EUR');
+    setDesc('');
+    setValidationError('');
+  }
+
+  function togglePaidBy(id: string) {
+    setPaidBy((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
+  }
+
+  function submitExpense(): boolean {
+    const description = activeTemplate ? activeTemplate.label : desc.trim();
+    if (!description) {
+      setValidationError('הזן תיאור');
+      return false;
+    }
+    if (!amount || parseFloat(amount) <= 0) {
+      setValidationError('הזן סכום');
+      return false;
+    }
+    if (paidBy.length === 0) {
+      setValidationError('בחר מי שילם');
+      return false;
+    }
+    if (splitBetween.length === 0) {
+      setValidationError('בחר על מי לחלק');
+      return false;
+    }
+    setValidationError('');
+    const expense: Expense = {
+      id: generateId(),
+      description,
+      amount: parseFloat(amount),
+      currency,
+      paidBy: paidBy.length === 1 ? paidBy[0] : paidBy,
+      splitBetween,
+      date: new Date().toISOString(),
+    };
+    onUpdate({ ...trip, expenses: [...trip.expenses, expense] });
+    resetForm();
+    return true;
+  }
+
+  function resetForm() {
+    setActiveTemplate(null);
+    setCustomMode(false);
+    setDesc('');
+    setAmount('');
+    setCurrency('EUR');
+    setPaidBy([]);
+    setSplitBetween([]);
+    setValidationError('');
+  }
+
+  function removeExpense(id: string) {
+    onUpdate({
+      ...trip,
+      expenses: trip.expenses.filter((e) => e.id !== id),
+    });
+  }
+
+  function fixedKey(type: string, personId?: string): string {
+    return personId ? `${type}:${personId}` : type;
+  }
+
+  function matchesPayer(paidBy: string | string[], personId: string): boolean {
+    return Array.isArray(paidBy) ? paidBy.includes(personId) : paidBy === personId;
+  }
+
+  function getFixedExpense(type: string, personId?: string): Expense | undefined {
+    return trip.expenses.find(
+      (e) =>
+        e.fixedType === type &&
+        (personId ? matchesPayer(e.paidBy, personId) : !personId)
+    );
+  }
+
+  function saveFixedExpense(
+    def: FixedCostDef,
+    personId: string | undefined,
+    inputKey: string,
+    cur: Currency
+  ) {
+    const raw = fixedInputs[inputKey];
+    const val = parseFloat(raw);
+    if (!raw || isNaN(val) || val <= 0) return;
+
+    const existing = trip.expenses.find(
+      (e) =>
+        e.fixedType === def.type &&
+        (personId ? matchesPayer(e.paidBy, personId) : e.splitBetween.length === trip.people.length)
+    );
+
+    if (existing) {
+      onUpdate({
+        ...trip,
+        expenses: trip.expenses.map((e) =>
+          e.id === existing.id
+            ? {
+                ...e,
+                amount: val,
+                currency: cur,
+                splitBetween: def.shared
+                  ? trip.people.map((p) => p.id)
+                  : [personId!],
+              }
+            : e
+        ),
+      });
+    } else {
+      const expense: Expense = {
+        id: generateId(),
+        description: def.label,
+        amount: val,
+        currency: cur,
+        paidBy: personId ?? trip.people[0]?.id ?? '',
+        splitBetween: def.shared
+          ? trip.people.map((p) => p.id)
+          : [personId!],
+        date: new Date().toISOString(),
+        fixedType: def.type,
+      };
+      onUpdate({ ...trip, expenses: [...trip.expenses, expense] });
+    }
+
+    setFixedInputs((prev) => {
+      const next = { ...prev };
+      delete next[inputKey];
+      return next;
+    });
+  }
+
+  function toggleFixed(type: string) {
+    setExpandedFixed((prev) => {
+      const next = new Set(prev);
+      if (next.has(type)) next.delete(type);
+      else next.add(type);
+      return next;
+    });
+  }
+
+  function getTemplateIcon(description: string) {
+    const tpl = PURCHASE_TEMPLATES.find((t) => t.label === description);
+    if (!tpl) return null;
+    const Icon = tpl.icon;
+    return (
+      <div
+        className={`w-9 h-9 rounded-xl bg-gradient-to-br ${tpl.color} flex items-center justify-center text-white shrink-0 shadow-sm`}
+      >
+        <Icon size={18} />
+      </div>
+    );
+  }
+
+  if (trip.people.length === 0) {
+    return (
+      <div className="text-center py-16 animate-fade-in">
+        <div className="w-20 h-20 mx-auto mb-4 bg-white rounded-3xl shadow-sm flex items-center justify-center">
+          <Receipt size={36} className="text-gray-300" />
+        </div>
+        <p className="text-lg font-medium text-gray-500 mb-1">
+          אין משתתפים עדיין
+        </p>
+        <p className="text-sm text-gray-400">
+          הוסף משתתפים בטאב &quot;טיול&quot; כדי לנהל הוצאות
+        </p>
+      </div>
+    );
+  }
+
+  const fixedExpenses = trip.expenses.filter((e) => e.fixedType);
+  const purchaseExpenses = trip.expenses.filter((e) => !e.fixedType);
+
+  const fixedTotalEur = fixedExpenses.reduce(
+    (s, e) => s + toEur(e.amount, e.currency ?? 'ILS'),
+    0
+  );
+  const purchaseTotalEur = purchaseExpenses.reduce(
+    (s, e) => s + toEur(e.amount, e.currency ?? 'ILS'),
+    0
+  );
+
+  return (
+    <div className="space-y-4 pb-20">
+      {/* 1. Summary cards */}
+      <div className="grid grid-cols-2 gap-3">
+        <div className="bg-gradient-to-bl from-mountain to-mountain-light rounded-xl p-4 text-center animate-fade-in-up">
+          <div className="text-2xl font-bold text-white" dir="ltr">
+            {fmtEur(totalEur)}
+          </div>
+          <div className="text-xs text-white/50 mt-0.5" dir="ltr">
+            {fmtIls(totalIls)}
+          </div>
+          <div className="text-xs text-white/60 mt-1">סך הכל</div>
+        </div>
+        <div className="ios-card p-4 text-center animate-fade-in-up stagger-1">
+          <div className="text-2xl font-bold text-ios-blue" dir="ltr">
+            {fmtEur(perPersonEur)}
+          </div>
+          <div className="text-xs text-ios-gray3 mt-0.5" dir="ltr">
+            {fmtIls(perPersonEur * EUR_TO_ILS)}
+          </div>
+          <div className="text-xs text-ios-gray mt-1">ממוצע לאדם</div>
+        </div>
+      </div>
+
+      {/* 2. Per-person breakdown */}
+      {trip.expenses.length > 0 && (
+        <div className="ios-card p-4 animate-fade-in-up stagger-2">
+          <h3 className="text-xs font-semibold text-ios-gray mb-3">
+            סיכום לפי משתתף
+          </h3>
+          <div className="space-y-2.5">
+            {trip.people.map((person, idx) => {
+              const { paidEur, owesEur } = getPersonSpending(person.id);
+              const balance = paidEur - owesEur;
+              return (
+                <div key={person.id} className="flex items-center gap-3">
+                  <div
+                    className={`w-8 h-8 rounded-full bg-gradient-to-br ${
+                      AVATAR_COLORS[idx % AVATAR_COLORS.length]
+                    } flex items-center justify-center text-white text-xs font-bold shrink-0`}
+                  >
+                    {person.name.charAt(0)}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="font-medium text-ios-label text-sm truncate">
+                      {person.name}
+                    </div>
+                    <div className="text-xs text-ios-gray">
+                      שילם{' '}
+                      <span dir="ltr">{fmtEur(paidEur)}</span>
+                      <span className="text-ios-gray3" dir="ltr">
+                        {' '}
+                        ({fmtIls(paidEur * EUR_TO_ILS)})
+                      </span>
+                    </div>
+                  </div>
+                  <div className="text-left">
+                    <div
+                      className={`text-sm font-bold ${
+                        balance > 0
+                          ? 'text-ios-green'
+                          : balance < 0
+                            ? 'text-ios-red'
+                            : 'text-ios-gray3'
+                      }`}
+                      dir="ltr"
+                    >
+                      {balance > 0 ? '+' : ''}
+                      {fmtEur(balance)}
+                    </div>
+                    <div className="text-xs text-ios-gray3" dir="ltr">
+                      {balance > 0 ? '+' : ''}
+                      {fmtIls(balance * EUR_TO_ILS)}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* 3. Fixed Costs */}
+      <div className="animate-fade-in-up stagger-3">
+        <button
+          onClick={() => setShowFixedCosts(!showFixedCosts)}
+          className="w-full flex items-center justify-between mb-3"
+        >
+          <h3 className="text-xs font-semibold text-ios-gray flex items-center gap-1.5">
+            עלויות הטיול
+            <span className="text-ios-gray3" dir="ltr">
+              {fmtEur(fixedTotalEur)}
+            </span>
+          </h3>
+          <div
+            className={`transition-transform duration-200 ${
+              showFixedCosts ? 'rotate-180' : ''
+            }`}
+          >
+            <ChevronDown size={14} className="text-ios-gray3" />
+          </div>
+        </button>
+        {showFixedCosts && <div className="space-y-2 animate-slide-down">
+          {FIXED_COSTS.map((def) => {
+            const Icon = def.icon;
+            const isExpanded = expandedFixed.has(def.type);
+
+            if (def.shared) {
+              const existing = trip.expenses.find(
+                (e) => e.fixedType === def.type
+              );
+              const iKey = fixedKey(def.type);
+              const inputVal = fixedInputs[iKey] ?? '';
+              const hasSaved = !!existing;
+
+              return (
+                <div
+                  key={def.type}
+                  className="ios-card overflow-hidden"
+                >
+                  <div className="flex items-center gap-3 px-4 py-3.5">
+                    <div
+                      className={`w-9 h-9 rounded-xl bg-gradient-to-br ${def.color} flex items-center justify-center text-white shrink-0 shadow-sm`}
+                    >
+                      <Icon size={18} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="font-semibold text-ios-label text-sm">
+                        {def.label}
+                      </div>
+                      <div className="text-xs text-ios-gray">
+                        מחולק על כולם
+                      </div>
+                    </div>
+                    {hasSaved ? (
+                      <div className="text-left">
+                        <div className="font-bold text-ios-label text-sm" dir="ltr">
+                          {existing!.currency === 'EUR'
+                            ? fmtEur(existing!.amount)
+                            : fmtIls(existing!.amount)}
+                        </div>
+                        <div className="text-xs text-ios-gray" dir="ltr">
+                          {existing!.currency === 'EUR'
+                            ? fmtIls(toIls(existing!.amount, 'EUR'))
+                            : fmtEur(toEur(existing!.amount, 'ILS'))}
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="flex items-center gap-1.5">
+                          <input
+                            type="number"
+                            inputMode="decimal"
+                            value={inputVal}
+                            onChange={(e) =>
+                              setFixedInputs((p) => ({
+                                ...p,
+                                [iKey]: e.target.value,
+                              }))
+                            }
+                            placeholder="0"
+                            dir="ltr"
+                            className="w-24 bg-ios-gray6 rounded-xl px-3 py-2 text-sm text-left font-bold focus:outline-none focus:ring-2 focus:ring-ios-blue/30 placeholder:text-ios-gray3"
+                          />
+                          <MiniCurrencyToggle
+                            currency={fixedCurrencies[iKey] ?? 'EUR'}
+                            onChange={(c) =>
+                              setFixedCurrencies((p) => ({ ...p, [iKey]: c }))
+                            }
+                          />
+                          <button
+                            onClick={() =>
+                              saveFixedExpense(def, undefined, iKey, fixedCurrencies[iKey] ?? 'EUR')
+                            }
+                            className="bg-ios-blue text-white p-2 rounded-xl active:opacity-80 transition-all"
+                          >
+                            <Plus size={16} />
+                          </button>
+                        </div>
+                        {inputVal && parseFloat(inputVal) > 0 && (
+                          <div className="text-xs text-ios-gray mt-1 text-left" dir="ltr">
+                            {formatConversion(parseFloat(inputVal), fixedCurrencies[iKey] ?? 'EUR')}
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
+                  {hasSaved && (
+                    <div className="border-t border-ios-separator px-4 py-2 flex justify-between items-center">
+                      <span className="text-xs text-ios-gray">
+                        לאדם:{' '}
+                        <span className="font-semibold text-ios-label" dir="ltr">
+                          {fmtEur(
+                            toEur(existing!.amount, existing!.currency ?? 'ILS') /
+                              trip.people.length
+                          )}
+                        </span>
+                        <span className="text-ios-gray3 mr-1" dir="ltr">
+                          (
+                          {fmtIls(
+                            toIls(existing!.amount, existing!.currency ?? 'ILS') /
+                              trip.people.length
+                          )}
+                          )
+                        </span>
+                      </span>
+                      <button
+                        onClick={() => removeExpense(existing!.id)}
+                        className="text-ios-gray3 active:text-ios-red p-1 transition-all"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              );
+            }
+
+            return (
+              <div
+                key={def.type}
+                className="ios-card overflow-hidden"
+              >
+                <button
+                  onClick={() => toggleFixed(def.type)}
+                  className="w-full flex items-center gap-3 px-4 py-3.5 active:bg-ios-gray6 transition-colors"
+                >
+                  <div
+                    className={`w-9 h-9 rounded-xl bg-gradient-to-br ${def.color} flex items-center justify-center text-white shrink-0 shadow-sm`}
+                  >
+                    <Icon size={18} />
+                  </div>
+                  <div className="flex-1 min-w-0 text-right">
+                    <div className="font-semibold text-ios-label text-sm">
+                      {def.label}
+                    </div>
+                    <div className="text-xs text-ios-gray">אישי לכל משתתף</div>
+                  </div>
+                  <PersonalFixedSummary
+                    trip={trip}
+                    fixedType={def.type}
+                  />
+                  <div
+                    className={`transition-transform duration-200 ${
+                      isExpanded ? 'rotate-180' : ''
+                    }`}
+                  >
+                    <ChevronDown size={16} className="text-ios-gray3" />
+                  </div>
+                </button>
+
+                {isExpanded && (
+                  <div className="border-t border-ios-separator animate-slide-down">
+                    {trip.people.map((person, idx) => {
+                      const existing = trip.expenses.find(
+                        (e) =>
+                          e.fixedType === def.type && matchesPayer(e.paidBy, person.id)
+                      );
+                      const iKey = fixedKey(def.type, person.id);
+                      const inputVal = fixedInputs[iKey] ?? '';
+                      const hasSaved = !!existing;
+
+                      return (
+                        <div
+                          key={person.id}
+                          className="flex items-center gap-3 px-4 py-3 border-b border-ios-separator last:border-b-0"
+                        >
+                          <div
+                            className={`w-7 h-7 rounded-full bg-gradient-to-br ${
+                              AVATAR_COLORS[idx % AVATAR_COLORS.length]
+                            } flex items-center justify-center text-white text-xs font-bold shrink-0`}
+                          >
+                            {person.name.charAt(0)}
+                          </div>
+                          <span className="text-sm font-medium text-ios-label flex-1 truncate">
+                            {person.name}
+                            {person.phone === session.phone && (
+                              <span className="text-xs text-ios-blue mr-1">
+                                {' '}
+                                (אתה)
+                              </span>
+                            )}
+                          </span>
+                          {hasSaved ? (
+                            <div className="flex items-center gap-2">
+                              <div className="text-left">
+                                <span
+                                  className="font-bold text-ios-label text-sm"
+                                  dir="ltr"
+                                >
+                                  {existing!.currency === 'EUR'
+                                    ? fmtEur(existing!.amount)
+                                    : fmtIls(existing!.amount)}
+                                </span>
+                                <span
+                                  className="text-xs text-ios-gray block"
+                                  dir="ltr"
+                                >
+                                  {existing!.currency === 'EUR'
+                                    ? fmtIls(toIls(existing!.amount, 'EUR'))
+                                    : fmtEur(toEur(existing!.amount, 'ILS'))}
+                                </span>
+                              </div>
+                              <button
+                                onClick={() => removeExpense(existing!.id)}
+                                className="text-ios-gray3 active:text-ios-red p-1 transition-all"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-1.5">
+                              <input
+                                type="number"
+                                inputMode="decimal"
+                                value={inputVal}
+                                onChange={(e) =>
+                                  setFixedInputs((p) => ({
+                                    ...p,
+                                    [iKey]: e.target.value,
+                                  }))
+                                }
+                                placeholder="0"
+                                dir="ltr"
+                                className="w-20 bg-ios-gray6 rounded-xl px-3 py-2 text-sm text-left font-bold focus:outline-none focus:ring-2 focus:ring-ios-blue/30 placeholder:text-ios-gray3"
+                              />
+                              <MiniCurrencyToggle
+                                currency={fixedCurrencies[iKey] ?? 'EUR'}
+                                onChange={(c) =>
+                                  setFixedCurrencies((p) => ({ ...p, [iKey]: c }))
+                                }
+                              />
+                              <button
+                                onClick={() =>
+                                  saveFixedExpense(
+                                    def,
+                                    person.id,
+                                    iKey,
+                                    fixedCurrencies[iKey] ?? 'EUR'
+                                  )
+                                }
+                                className="bg-ios-blue text-white p-1.5 rounded-lg active:opacity-80 transition-all"
+                              >
+                                <Plus size={14} />
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>}
+      </div>
+
+      {/* 4. Debts */}
+      {trip.expenses.length > 0 && (
+        <div className="ios-card p-4 animate-fade-in-up stagger-4">
+          <div className="flex items-center gap-2 mb-3">
+            <TrendingUp size={14} className="text-ios-blue" />
+            <h3 className="text-xs font-semibold text-ios-gray">
+              מאזן חובות
+            </h3>
+          </div>
+          {debts.length === 0 ? (
+            <div className="flex items-center justify-center gap-2 py-4 text-ios-green">
+              <CheckCircle size={20} />
+              <span className="font-semibold text-sm">הכל מאוזן! אין חובות</span>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {debts.map((d, i) => (
+                <div
+                  key={i}
+                  className="flex items-center gap-2.5 bg-ios-blue/5 rounded-xl px-4 py-3 animate-fade-in-up"
+                  style={{ animationDelay: `${i * 60}ms` }}
+                >
+                  <div
+                    className={`w-7 h-7 rounded-full bg-gradient-to-br ${
+                      AVATAR_COLORS[
+                        getPersonIndex(d.from) % AVATAR_COLORS.length
+                      ]
+                    } flex items-center justify-center text-white text-xs font-bold shrink-0`}
+                  >
+                    {getPersonName(d.from).charAt(0)}
+                  </div>
+                  <ArrowLeft size={14} className="text-ios-gray shrink-0" />
+                  <div
+                    className={`w-7 h-7 rounded-full bg-gradient-to-br ${
+                      AVATAR_COLORS[
+                        getPersonIndex(d.to) % AVATAR_COLORS.length
+                      ]
+                    } flex items-center justify-center text-white text-xs font-bold shrink-0`}
+                  >
+                    {getPersonName(d.to).charAt(0)}
+                  </div>
+                  <div className="me-auto text-left">
+                    <span className="font-bold text-ios-label" dir="ltr">
+                      {fmtEur(d.amount)}
+                    </span>
+                    <span
+                      className="text-xs text-ios-gray block"
+                      dir="ltr"
+                    >
+                      {fmtIls(d.amount * EUR_TO_ILS)}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* 5. Purchase history */}
+      {purchaseExpenses.length > 0 && (
+        <div className="animate-fade-in-up stagger-5">
+          <h3 className="text-xs font-semibold text-ios-gray mb-3 flex items-center gap-1.5">
+            רכישות
+            <span className="text-ios-gray3" dir="ltr">
+              {fmtEur(purchaseTotalEur)}
+            </span>
+          </h3>
+          <div className="ios-card overflow-hidden">
+            {[...purchaseExpenses].reverse().map((exp, i) => {
+              const templateIcon = getTemplateIcon(exp.description);
+              const amtEur = toEur(exp.amount, exp.currency ?? 'ILS');
+              return (
+                <div
+                  key={exp.id}
+                  className={`flex items-center gap-3 px-4 py-3.5 animate-fade-in ${i > 0 ? 'border-t border-ios-separator' : ''}`}
+                  style={{ animationDelay: `${i * 30}ms` }}
+                >
+                  {(() => {
+                    const payers = getPayers(exp.paidBy);
+                    const firstPayer = payers[0];
+                    const payerNames = payers.map(getPersonName).join(' + ');
+                    return (
+                      <>
+                        {templateIcon || (
+                          <div
+                            className={`w-9 h-9 rounded-xl bg-gradient-to-br ${
+                              AVATAR_COLORS[
+                                getPersonIndex(firstPayer) %
+                                  AVATAR_COLORS.length
+                              ]
+                            } flex items-center justify-center text-white text-sm font-bold shrink-0`}
+                          >
+                            {payers.length > 1
+                              ? payers.length
+                              : getPersonName(firstPayer).charAt(0)}
+                          </div>
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <div className="font-semibold text-ios-label text-[15px] truncate">
+                            {exp.description}
+                          </div>
+                          <div className="text-[12px] text-ios-gray mt-0.5">
+                            {payerNames} ·{' '}
+                            {formatDate(exp.date)} {formatTime(exp.date)}
+                          </div>
+                        </div>
+                        <div className="text-left">
+                          <div className="font-bold text-ios-label text-sm" dir="ltr">
+                            {fmtEur(amtEur)}
+                          </div>
+                          <div className="text-[11px] text-ios-gray3" dir="ltr">
+                            {fmtIls(amtEur * EUR_TO_ILS)}
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => removeExpense(exp.id)}
+                          className="text-ios-gray4 active:text-ios-red p-1 transition-colors"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </>
+                    );
+                  })()}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Floating Add Button */}
+      <button
+        onClick={openAddModal}
+        className="fixed bottom-24 left-5 w-14 h-14 bg-ios-blue text-white rounded-full shadow-lg shadow-ios-blue/30 flex items-center justify-center active:scale-90 transition-transform z-40"
+      >
+        <Plus size={28} strokeWidth={2.5} />
+      </button>
+
+      {/* Add Purchase Modal */}
+      {showAddModal && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center">
+          <div
+            className="absolute inset-0 bg-black/40 backdrop-blur-sm animate-fade-in"
+            onClick={closeAddModal}
+          />
+          <div className="relative w-full max-w-lg bg-ios-bg rounded-t-3xl animate-slide-up max-h-[85vh] overflow-y-auto safe-bottom">
+            <div className="sticky top-0 bg-ios-bg/90 backdrop-blur-xl z-10 px-5 pt-3 pb-2 border-b border-ios-separator">
+              <div className="w-10 h-1 bg-ios-gray4 rounded-full mx-auto mb-3" />
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-bold text-ios-label">הוצאה חדשה</h2>
+                <button
+                  onClick={closeAddModal}
+                  className="w-8 h-8 bg-ios-gray5 rounded-full flex items-center justify-center active:bg-ios-gray4 transition-colors"
+                >
+                  <X size={16} className="text-ios-gray" />
+                </button>
+              </div>
+            </div>
+
+            <div className="p-5 space-y-4">
+              {!showForm ? (
+                <>
+                  <div className="grid grid-cols-2 gap-2">
+                    {PURCHASE_TEMPLATES.map((tpl) => {
+                      const Icon = tpl.icon;
+                      return (
+                        <button
+                          key={tpl.label}
+                          onClick={() => openForm(tpl)}
+                          className="flex items-center gap-3 ios-card px-4 py-3.5 active:scale-[0.97] transition-all duration-150 text-right"
+                        >
+                          <div
+                            className={`w-9 h-9 rounded-xl bg-gradient-to-br ${tpl.color} flex items-center justify-center text-white shrink-0`}
+                          >
+                            <Icon size={18} />
+                          </div>
+                          <span className="text-sm font-medium text-ios-label truncate">
+                            {tpl.label}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <button
+                    onClick={() => openForm(null)}
+                    className="w-full flex items-center justify-center gap-2 ios-card p-4 text-ios-blue font-semibold active:bg-ios-gray6 active:scale-[0.98] transition-all"
+                  >
+                    <Pencil size={16} />
+                    הוצאה מותאמת אישית
+                  </button>
+                </>
+              ) : (
+                <div className="space-y-4 animate-fade-in">
+                  {activeTemplate && (
+                    <div className="flex items-center gap-3">
+                      <div
+                        className={`w-10 h-10 rounded-xl bg-gradient-to-br ${activeTemplate.color} flex items-center justify-center text-white`}
+                      >
+                        <activeTemplate.icon size={20} />
+                      </div>
+                      <span className="font-bold text-ios-label text-lg">
+                        {activeTemplate.label}
+                      </span>
+                      <button
+                        onClick={() => { resetForm(); }}
+                        className="me-auto text-ios-blue text-sm font-medium"
+                      >
+                        שנה
+                      </button>
+                    </div>
+                  )}
+
+                  {customMode && (
+                    <input
+                      type="text"
+                      value={desc}
+                      onChange={(e) => {
+                        setDesc(e.target.value);
+                        setValidationError('');
+                      }}
+                      placeholder="תיאור ההוצאה..."
+                      autoFocus
+                      className="w-full bg-ios-gray6 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-ios-blue/30 placeholder:text-ios-gray3 transition-all"
+                    />
+                  )}
+
+                  <div>
+                    <div className="flex gap-2">
+                      <div className="relative flex-1">
+                        <span className="absolute start-4 top-1/2 -translate-y-1/2 text-ios-gray3 text-lg font-bold pointer-events-none">
+                          {currencySymbol(currency)}
+                        </span>
+                        <input
+                          type="number"
+                          inputMode="decimal"
+                          value={amount}
+                          onChange={(e) => {
+                            setAmount(e.target.value);
+                            setValidationError('');
+                          }}
+                          placeholder="0"
+                          autoFocus={!customMode}
+                          dir="ltr"
+                          className="w-full bg-ios-gray6 rounded-xl ps-10 pe-4 py-4 focus:outline-none focus:ring-2 focus:ring-ios-blue/30 text-left text-2xl font-bold text-ios-label placeholder:text-ios-gray3 transition-all"
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') submitExpense();
+                          }}
+                        />
+                      </div>
+                      <CurrencyToggle
+                        currency={currency}
+                        onChange={setCurrency}
+                      />
+                    </div>
+                    {amount && parseFloat(amount) > 0 && (
+                      <div className="text-xs text-ios-gray mt-1.5 text-left" dir="ltr">
+                        {formatConversion(parseFloat(amount), currency)}
+                      </div>
+                    )}
+                  </div>
+
+                  <div>
+                    <p className="text-xs font-semibold text-ios-gray mb-2">
+                      מי שילם?
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {trip.people.map((p, idx) => {
+                        const selected = paidBy.includes(p.id);
+                        return (
+                          <button
+                            key={p.id}
+                            onClick={() => {
+                              togglePaidBy(p.id);
+                              setValidationError('');
+                            }}
+                            className={`flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-medium transition-all duration-200 ${
+                              selected
+                                ? `bg-gradient-to-l ${AVATAR_COLORS[idx % AVATAR_COLORS.length]} text-white shadow-sm scale-105`
+                                : 'bg-ios-gray5 text-ios-label3 active:bg-ios-gray4 active:scale-95'
+                            }`}
+                          >
+                            <div
+                              className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${
+                                selected
+                                  ? 'bg-white/25 text-white'
+                                  : `bg-gradient-to-br ${AVATAR_COLORS[idx % AVATAR_COLORS.length]} text-white`
+                              }`}
+                            >
+                              {p.name.charAt(0)}
+                            </div>
+                            {p.name}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div>
+                    <p className="text-xs font-semibold text-ios-gray mb-2">
+                      לחלק בין:
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {trip.people.map((p, idx) => {
+                        const selected = splitBetween.includes(p.id);
+                        return (
+                          <button
+                            key={p.id}
+                            onClick={() => {
+                              toggleSplit(p.id);
+                              setValidationError('');
+                            }}
+                            className={`flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-medium transition-all duration-200 ${
+                              selected
+                                ? `bg-gradient-to-l ${AVATAR_COLORS[idx % AVATAR_COLORS.length]} text-white shadow-sm scale-105`
+                                : 'bg-ios-gray5 text-ios-label3 active:bg-ios-gray4 active:scale-95'
+                            }`}
+                          >
+                            <div
+                              className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${
+                                selected
+                                  ? 'bg-white/25 text-white'
+                                  : `bg-gradient-to-br ${AVATAR_COLORS[idx % AVATAR_COLORS.length]} text-white`
+                              }`}
+                            >
+                              {p.name.charAt(0)}
+                            </div>
+                            {p.name}
+                          </button>
+                        );
+                      })}
+                      {splitBetween.length < trip.people.length && (
+                        <button
+                          onClick={() =>
+                            setSplitBetween(trip.people.map((p) => p.id))
+                          }
+                          className="px-4 py-2.5 rounded-full text-sm font-medium text-ios-blue bg-ios-blue/10 active:bg-ios-blue/20 active:scale-95 transition-all"
+                        >
+                          כולם
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {amount &&
+                    splitBetween.length > 0 &&
+                    parseFloat(amount) > 0 && (
+                      <div className="bg-ios-gray6 rounded-xl px-4 py-2.5 text-center animate-fade-in">
+                        <span className="text-sm text-ios-gray">
+                          <span
+                            className="font-bold text-ios-label"
+                            dir="ltr"
+                          >
+                            {currencySymbol(currency)}
+                            {Math.round(
+                              parseFloat(amount) / splitBetween.length
+                            ).toLocaleString()}
+                          </span>{' '}
+                          לאדם
+                        </span>
+                      </div>
+                    )}
+
+                  {validationError && (
+                    <div className="text-center text-sm text-ios-red font-medium animate-scale-in">
+                      {validationError}
+                    </div>
+                  )}
+
+                  <button
+                    onClick={() => {
+                      if (submitExpense()) setShowAddModal(false);
+                    }}
+                    className="w-full bg-ios-blue text-white font-semibold py-3.5 rounded-xl active:opacity-80 transition-opacity"
+                  >
+                    הוסף{' '}
+                    {activeTemplate
+                      ? `"${activeTemplate.label}"`
+                      : desc.trim()
+                        ? `"${desc.trim()}"`
+                        : 'הוצאה'}
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CurrencyToggle({
+  currency,
+  onChange,
+}: {
+  currency: Currency;
+  onChange: (c: Currency) => void;
+}) {
+  return (
+    <div className="flex flex-col gap-1 justify-center">
+      {CURRENCY_ORDER.map((c) => (
+        <button
+          key={c}
+          onClick={() => onChange(c)}
+          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+            currency === c
+              ? 'bg-sky-500 text-white shadow-sm'
+              : 'bg-gray-100 text-gray-500 active:bg-gray-200'
+          }`}
+        >
+          {c} {currencySymbol(c)}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function MiniCurrencyToggle({
+  currency,
+  onChange,
+}: {
+  currency: Currency;
+  onChange: (c: Currency) => void;
+}) {
+  return (
+    <button
+      onClick={() => onChange(nextCurrency(currency))}
+      className="px-2.5 py-2 rounded-xl bg-gray-100 text-xs font-bold text-gray-600 active:bg-gray-200 transition-all min-w-[36px] text-center"
+    >
+      {currencySymbol(currency)}
+    </button>
+  );
+}
+
+function PersonalFixedSummary({
+  trip,
+  fixedType,
+}: {
+  trip: Trip;
+  fixedType: string;
+}) {
+  const filled = trip.expenses.filter((e) => e.fixedType === fixedType);
+  const total = trip.people.length;
+  if (filled.length === 0)
+    return (
+      <span className="text-xs text-gray-300" dir="ltr">
+        0/{total}
+      </span>
+    );
+
+  const sumEur = filled.reduce(
+    (s, e) => s + toEur(e.amount, e.currency ?? 'ILS'),
+    0
+  );
+  return (
+    <div className="text-left">
+      <span className="text-xs font-bold text-gray-700" dir="ltr">
+        {fmtEur(sumEur)}
+      </span>
+      <span className="text-xs text-gray-300 block" dir="ltr">
+        {filled.length}/{total}
+      </span>
+    </div>
+  );
+}
