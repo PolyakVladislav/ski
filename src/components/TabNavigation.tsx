@@ -1,8 +1,9 @@
-import { Mountain, PackageCheck, Receipt } from 'lucide-react';
+import { Mountain, PackageCheck, Receipt, CloudSnow } from 'lucide-react';
 import type { TabId } from '../types';
 
 const TABS: { id: TabId; label: string; icon: typeof Mountain }[] = [
   { id: 'trip', label: 'טיול', icon: Mountain },
+  { id: 'resort', label: 'אתר', icon: CloudSnow },
   { id: 'packing', label: 'ציוד', icon: PackageCheck },
   { id: 'expenses', label: 'הוצאות', icon: Receipt },
 ];

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import type { Trip, Expense, UserSession } from '../../types';
 import { generateId } from '../../store';
@@ -14,13 +14,14 @@ import {
   ShoppingBag,
   Hotel,
   Pencil,
-  X,
   Shield,
   Plane,
   Bus,
   ChevronDown,
   Snowflake,
   CheckCircle,
+  Check,
+  ChevronLeft,
 } from 'lucide-react';
 
 interface Props {
@@ -35,22 +36,26 @@ interface Debt {
   amount: number;
 }
 
-const EUR_TO_ILS = 3.67;
-const USD_TO_ILS = 3.10;
-const USD_TO_EUR = USD_TO_ILS / EUR_TO_ILS;
+const DEFAULT_EUR_ILS = 3.67;
+const DEFAULT_USD_ILS = 3.10;
 
 type Currency = 'EUR' | 'ILS' | 'USD';
 
-function toEur(amount: number, currency: Currency): number {
-  if (currency === 'EUR') return amount;
-  if (currency === 'ILS') return amount / EUR_TO_ILS;
-  return amount * USD_TO_EUR;
+interface Rates {
+  eurIls: number;
+  usdIls: number;
 }
 
-function toIls(amount: number, currency: Currency): number {
+function toEur(amount: number, currency: Currency, r: Rates): number {
+  if (currency === 'EUR') return amount;
+  if (currency === 'ILS') return amount / r.eurIls;
+  return amount * (r.usdIls / r.eurIls);
+}
+
+function toIls(amount: number, currency: Currency, r: Rates): number {
   if (currency === 'ILS') return amount;
-  if (currency === 'EUR') return amount * EUR_TO_ILS;
-  return amount * USD_TO_ILS;
+  if (currency === 'EUR') return amount * r.eurIls;
+  return amount * r.usdIls;
 }
 
 function currencySymbol(c: Currency): string {
@@ -106,17 +111,25 @@ const AVATAR_COLORS = [
   'from-cyan-400 to-teal-500',
 ];
 
+function getExpRates(exp: Expense, fallback: Rates): Rates {
+  return {
+    eurIls: exp.rateEurIls ?? fallback.eurIls,
+    usdIls: exp.rateUsdIls ?? fallback.usdIls,
+  };
+}
+
 function getPayers(paidBy: string | string[]): string[] {
   return Array.isArray(paidBy) ? paidBy : [paidBy];
 }
 
-function calculateDebts(trip: Trip): Debt[] {
+function calculateDebts(trip: Trip, fallback: Rates): Debt[] {
   const balances = new Map<string, number>();
   trip.people.forEach((p) => balances.set(p.id, 0));
 
   for (const exp of trip.expenses) {
     if (exp.fixedType === 'apartment') continue;
-    const amountEur = toEur(exp.amount, exp.currency ?? 'ILS');
+    const r = getExpRates(exp, fallback);
+    const amountEur = toEur(exp.amount, exp.currency ?? 'ILS', r);
     const payers = getPayers(exp.paidBy);
     const perPayer = amountEur / payers.length;
     const share = amountEur / exp.splitBetween.length;
@@ -185,13 +198,13 @@ function fmtUsd(n: number): string {
   return `$${Math.round(n).toLocaleString()}`;
 }
 
-function formatConversion(amount: number, from: Currency): string {
-  const eur = toEur(amount, from);
-  const ils = toIls(amount, from);
+function formatConversion(amount: number, from: Currency, r: Rates): string {
+  const eur = toEur(amount, from, r);
+  const ils = toIls(amount, from, r);
   const parts: string[] = [];
   if (from !== 'EUR') parts.push(fmtEur(eur));
   if (from !== 'ILS') parts.push(fmtIls(ils));
-  if (from !== 'USD') parts.push(fmtUsd(eur / USD_TO_EUR));
+  if (from !== 'USD') parts.push(fmtUsd(eur * r.eurIls / r.usdIls));
   return parts.join(' · ');
 }
 
@@ -216,16 +229,31 @@ export function ExpensesTab({ trip, session, onUpdate }: Props) {
   const [editDesc, setEditDesc] = useState('');
   const [editPaidBy, setEditPaidBy] = useState<string[]>([]);
   const [editSplit, setEditSplit] = useState<string[]>([]);
+  const [liveRates, setLiveRates] = useState<Rates>({ eurIls: DEFAULT_EUR_ILS, usdIls: DEFAULT_USD_ILS });
+
+  useEffect(() => {
+    fetch('https://open.er-api.com/v6/latest/EUR')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.rates?.ILS && data.rates?.USD) {
+          setLiveRates({
+            eurIls: data.rates.ILS,
+            usdIls: data.rates.ILS / data.rates.USD,
+          });
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   const totalEur = trip.expenses.reduce(
-    (s, e) => s + toEur(e.amount, e.currency ?? 'ILS'),
+    (s, e) => s + toEur(e.amount, e.currency ?? 'ILS', getExpRates(e, liveRates)),
     0
   );
-  const totalIls = totalEur * EUR_TO_ILS;
+  const totalIls = totalEur * liveRates.eurIls;
   const perPersonEur =
     trip.people.length > 0 ? totalEur / trip.people.length : 0;
 
-  const debts = calculateDebts(trip);
+  const debts = calculateDebts(trip, liveRates);
   const showForm = activeTemplate !== null || customMode;
 
   function openAddModal() {
@@ -250,7 +278,8 @@ export function ExpensesTab({ trip, session, onUpdate }: Props) {
     let paidEur = 0;
     let owesEur = 0;
     for (const exp of trip.expenses) {
-      const amtEur = toEur(exp.amount, exp.currency ?? 'ILS');
+      const r = getExpRates(exp, liveRates);
+      const amtEur = toEur(exp.amount, exp.currency ?? 'ILS', r);
       const payers = getPayers(exp.paidBy);
       if (payers.includes(personId)) paidEur += amtEur / payers.length;
       if (exp.splitBetween.includes(personId)) {
@@ -311,6 +340,8 @@ export function ExpensesTab({ trip, session, onUpdate }: Props) {
       paidBy: paidBy.length === 1 ? paidBy[0] : paidBy,
       splitBetween,
       date: new Date().toISOString(),
+      rateEurIls: liveRates.eurIls,
+      rateUsdIls: liveRates.usdIls,
     };
     onUpdate({ ...trip, expenses: [...trip.expenses, expense] });
     resetForm();
@@ -404,6 +435,8 @@ export function ExpensesTab({ trip, session, onUpdate }: Props) {
                 ...e,
                 amount: val,
                 currency: cur,
+                rateEurIls: liveRates.eurIls,
+                rateUsdIls: liveRates.usdIls,
                 splitBetween: def.shared
                   ? trip.people.map((p) => p.id)
                   : [personId!],
@@ -423,6 +456,8 @@ export function ExpensesTab({ trip, session, onUpdate }: Props) {
           : [personId!],
         date: new Date().toISOString(),
         fixedType: def.type,
+        rateEurIls: liveRates.eurIls,
+        rateUsdIls: liveRates.usdIls,
       };
       onUpdate({ ...trip, expenses: [...trip.expenses, expense] });
     }
@@ -463,11 +498,11 @@ export function ExpensesTab({ trip, session, onUpdate }: Props) {
   const purchaseExpenses = trip.expenses.filter((e) => !e.fixedType);
 
   const fixedTotalEur = fixedExpenses.reduce(
-    (s, e) => s + toEur(e.amount, e.currency ?? 'ILS'),
+    (s, e) => s + toEur(e.amount, e.currency ?? 'ILS', getExpRates(e, liveRates)),
     0
   );
   const purchaseTotalEur = purchaseExpenses.reduce(
-    (s, e) => s + toEur(e.amount, e.currency ?? 'ILS'),
+    (s, e) => s + toEur(e.amount, e.currency ?? 'ILS', getExpRates(e, liveRates)),
     0
   );
 
@@ -489,7 +524,7 @@ export function ExpensesTab({ trip, session, onUpdate }: Props) {
             {fmtEur(perPersonEur)}
           </div>
           <div className="text-xs text-ios-gray3 mt-0.5" dir="ltr">
-            {fmtIls(perPersonEur * EUR_TO_ILS)}
+            {fmtIls(perPersonEur * liveRates.eurIls)}
           </div>
           <div className="text-xs text-ios-gray mt-1">ממוצע לאדם</div>
         </div>
@@ -520,7 +555,7 @@ export function ExpensesTab({ trip, session, onUpdate }: Props) {
                     {fmtEur(owesEur)}
                   </div>
                   <div className="text-[11px] text-ios-gray" dir="ltr">
-                    {fmtIls(owesEur * EUR_TO_ILS)}
+                    {fmtIls(owesEur * liveRates.eurIls)}
                   </div>
                 </div>
               </div>
@@ -590,8 +625,8 @@ export function ExpensesTab({ trip, session, onUpdate }: Props) {
                         </div>
                         <div className="text-xs text-ios-gray" dir="ltr">
                           {existing!.currency === 'EUR'
-                            ? fmtIls(toIls(existing!.amount, 'EUR'))
-                            : fmtEur(toEur(existing!.amount, 'ILS'))}
+                            ? fmtIls(toIls(existing!.amount, 'EUR', getExpRates(existing!, liveRates)))
+                            : fmtEur(toEur(existing!.amount, 'ILS', getExpRates(existing!, liveRates)))}
                         </div>
                       </div>
                     ) : (
@@ -628,7 +663,7 @@ export function ExpensesTab({ trip, session, onUpdate }: Props) {
                         </div>
                         {inputVal && parseFloat(inputVal) > 0 && (
                           <div className="text-xs text-ios-gray mt-1 text-left" dir="ltr">
-                            {formatConversion(parseFloat(inputVal), fixedCurrencies[iKey] ?? 'EUR')}
+                            {formatConversion(parseFloat(inputVal), fixedCurrencies[iKey] ?? 'EUR', liveRates)}
                           </div>
                         )}
                       </>
@@ -640,14 +675,14 @@ export function ExpensesTab({ trip, session, onUpdate }: Props) {
                         לאדם:{' '}
                         <span className="font-semibold text-ios-label" dir="ltr">
                           {fmtEur(
-                            toEur(existing!.amount, existing!.currency ?? 'ILS') /
+                            toEur(existing!.amount, existing!.currency ?? 'ILS', getExpRates(existing!, liveRates)) /
                               trip.people.length
                           )}
                         </span>
                         <span className="text-ios-gray3 mr-1" dir="ltr">
                           (
                           {fmtIls(
-                            toIls(existing!.amount, existing!.currency ?? 'ILS') /
+                            toIls(existing!.amount, existing!.currency ?? 'ILS', getExpRates(existing!, liveRates)) /
                               trip.people.length
                           )}
                           )
@@ -688,6 +723,7 @@ export function ExpensesTab({ trip, session, onUpdate }: Props) {
                   <PersonalFixedSummary
                     trip={trip}
                     fixedType={def.type}
+                    rates={liveRates}
                   />
                   <div
                     className={`transition-transform duration-200 ${
@@ -746,8 +782,8 @@ export function ExpensesTab({ trip, session, onUpdate }: Props) {
                                   dir="ltr"
                                 >
                                   {existing!.currency === 'EUR'
-                                    ? fmtIls(toIls(existing!.amount, 'EUR'))
-                                    : fmtEur(toEur(existing!.amount, 'ILS'))}
+                                    ? fmtIls(toIls(existing!.amount, 'EUR', getExpRates(existing!, liveRates)))
+                                    : fmtEur(toEur(existing!.amount, 'ILS', getExpRates(existing!, liveRates)))}
                                 </span>
                               </div>
                               <button
@@ -836,7 +872,7 @@ export function ExpensesTab({ trip, session, onUpdate }: Props) {
                       {fmtEur(d.amount)}
                     </div>
                     <div className="text-[11px] text-ios-gray" dir="ltr">
-                      {fmtIls(d.amount * EUR_TO_ILS)}
+                      {fmtIls(d.amount * liveRates.eurIls)}
                     </div>
                   </div>
                 </div>
@@ -857,7 +893,7 @@ export function ExpensesTab({ trip, session, onUpdate }: Props) {
           </h3>
           <div className="ios-card overflow-hidden">
             {[...purchaseExpenses].reverse().map((exp, i) => {
-              const amtEur = toEur(exp.amount, exp.currency ?? 'ILS');
+              const amtEur = toEur(exp.amount, exp.currency ?? 'ILS', getExpRates(exp, liveRates));
               const isOpen = expandedPurchase === exp.id;
               const isEditing = editingExpense === exp.id;
               const payers = getPayers(exp.paidBy);
@@ -896,7 +932,7 @@ export function ExpensesTab({ trip, session, onUpdate }: Props) {
                             <span className="text-ios-gray">סכום</span>
                             <span className="text-ios-label font-medium" dir="ltr">
                               {fmtEur(amtEur)}
-                              <span className="text-ios-gray mr-1">({fmtIls(amtEur * EUR_TO_ILS)})</span>
+                              <span className="text-ios-gray mr-1">({fmtIls(toIls(exp.amount, exp.currency ?? 'ILS', getExpRates(exp, liveRates)))})</span>
                             </span>
                           </div>
                           <div className="flex justify-between text-[13px]">
@@ -1022,6 +1058,17 @@ export function ExpensesTab({ trip, session, onUpdate }: Props) {
         </div>
       )}
 
+      <div className="text-center pt-2 pb-4">
+        <a
+          href="https://www.exchangerate-api.com"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-[10px] text-ios-gray3"
+        >
+          Rates by ExchangeRate-API
+        </a>
+      </div>
+
       {/* Floating Add Button */}
       <button
         onClick={openAddModal}
@@ -1030,277 +1077,226 @@ export function ExpensesTab({ trip, session, onUpdate }: Props) {
         <Plus size={28} strokeWidth={2.5} />
       </button>
 
-      {/* Add Purchase Modal — fullscreen, portaled to body */}
+      {/* Add Purchase Modal — fullscreen iOS style, portaled to body */}
       {showAddModal && createPortal(
-        <div className="fixed inset-0 z-50 bg-ios-bg flex flex-col animate-slide-up">
-          <div className="shrink-0 px-5 pt-[max(0.75rem,env(safe-area-inset-top))] pb-2 border-b border-ios-separator flex items-center justify-between">
-            <h2 className="text-lg font-bold text-ios-label">הוצאה חדשה</h2>
-            <button
-              onClick={closeAddModal}
-              className="w-8 h-8 bg-ios-gray5 rounded-full flex items-center justify-center active:bg-ios-gray4 transition-colors"
-            >
-              <X size={16} className="text-ios-gray" />
-            </button>
+        <div className="fixed inset-0 z-50 bg-ios-bg flex flex-col animate-slide-up" dir="rtl">
+          {/* iOS Navigation Bar */}
+          <div className="shrink-0 pt-[max(0.75rem,env(safe-area-inset-top))] bg-ios-card/80 backdrop-blur-xl border-b border-ios-separator">
+            <div className="flex items-center justify-between px-4 h-11">
+              {showForm ? (
+                <button
+                  onClick={() => resetForm()}
+                  className="text-ios-blue text-[17px] active:opacity-60 transition-opacity flex items-center gap-0.5"
+                >
+                  <ChevronLeft size={20} strokeWidth={2.5} className="rotate-180" />
+                  <span>חזרה</span>
+                </button>
+              ) : (
+                <div />
+              )}
+              <span className="text-[17px] font-semibold text-ios-label absolute left-1/2 -translate-x-1/2">
+                {showForm ? (activeTemplate?.label ?? 'הוצאה חדשה') : 'הוצאה חדשה'}
+              </span>
+              <button
+                onClick={closeAddModal}
+                className="text-ios-blue text-[17px] font-medium active:opacity-60 transition-opacity"
+              >
+                ביטול
+              </button>
+            </div>
           </div>
 
-          <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-5 space-y-4">
+          {/* Scrollable content */}
+          <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain">
             {!showForm ? (
-              <>
-                <div className="grid grid-cols-2 gap-2">
-                  {PURCHASE_TEMPLATES.map((tpl) => {
+              <div className="px-4 pt-5">
+                <p className="text-[13px] font-medium text-ios-gray px-4 pb-2">בחר סוג הוצאה</p>
+                <div className="ios-card overflow-hidden">
+                  {PURCHASE_TEMPLATES.map((tpl, i) => {
                     const Icon = tpl.icon;
                     return (
                       <button
                         key={tpl.label}
                         onClick={() => openForm(tpl)}
-                        className="flex items-center gap-3 ios-card px-4 py-3.5 active:scale-[0.97] transition-all duration-150 text-right"
+                        className={`w-full flex items-center gap-3 px-4 py-[11px] active:bg-ios-gray6 transition-colors ${
+                          i > 0 ? 'border-t border-ios-separator' : ''
+                        }`}
                       >
-                        <div
-                          className={`w-9 h-9 rounded-xl bg-gradient-to-br ${tpl.color} flex items-center justify-center text-white shrink-0`}
-                        >
-                          <Icon size={18} />
+                        <div className={`w-[29px] h-[29px] rounded-[7px] bg-gradient-to-br ${tpl.color} flex items-center justify-center text-white shrink-0`}>
+                          <Icon size={15} />
                         </div>
-                        <span className="text-sm font-medium text-ios-label truncate">
-                          {tpl.label}
-                        </span>
+                        <span className="text-[17px] text-ios-label flex-1 text-right">{tpl.label}</span>
+                        <ChevronLeft size={16} className="text-ios-gray3" />
                       </button>
                     );
                   })}
-                </div>
-                <button
-                  onClick={() => openForm(null)}
-                  className="w-full flex items-center justify-center gap-2 ios-card p-4 text-ios-blue font-semibold active:bg-ios-gray6 active:scale-[0.98] transition-all"
-                >
-                  <Pencil size={16} />
-                  הוצאה מותאמת אישית
-                </button>
-              </>
-            ) : (
-              <div className="space-y-4 animate-fade-in">
-                {activeTemplate && (
-                  <div className="flex items-center gap-3">
-                    <div
-                      className={`w-10 h-10 rounded-xl bg-gradient-to-br ${activeTemplate.color} flex items-center justify-center text-white`}
-                    >
-                      <activeTemplate.icon size={20} />
+                  <button
+                    onClick={() => openForm(null)}
+                    className="w-full flex items-center gap-3 px-4 py-[11px] active:bg-ios-gray6 transition-colors border-t border-ios-separator"
+                  >
+                    <div className="w-[29px] h-[29px] rounded-[7px] bg-ios-gray flex items-center justify-center text-white shrink-0">
+                      <Pencil size={15} />
                     </div>
-                    <span className="font-bold text-ios-label text-lg">
-                      {activeTemplate.label}
-                    </span>
-                    <button
-                      onClick={() => { resetForm(); }}
-                      className="me-auto text-ios-blue text-sm font-medium"
-                    >
-                      שנה
-                    </button>
+                    <span className="text-[17px] text-ios-label flex-1 text-right">הוצאה מותאמת אישית</span>
+                    <ChevronLeft size={16} className="text-ios-gray3" />
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="px-4 pt-5 pb-4 space-y-6 animate-fade-in">
+                {/* Description (custom mode only) */}
+                {customMode && (
+                  <div>
+                    <p className="text-[13px] font-medium text-ios-gray px-4 pb-2">תיאור</p>
+                    <div className="ios-card overflow-hidden">
+                      <input
+                        type="text"
+                        value={desc}
+                        onChange={(e) => { setDesc(e.target.value); setValidationError(''); }}
+                        placeholder="למשל: ארוחת ערב..."
+                        autoFocus
+                        className="w-full px-4 py-[11px] text-[17px] text-ios-label bg-transparent placeholder:text-ios-gray3 focus:outline-none"
+                      />
+                    </div>
                   </div>
                 )}
 
-                {customMode && (
-                  <input
-                    type="text"
-                    value={desc}
-                    onChange={(e) => {
-                      setDesc(e.target.value);
-                      setValidationError('');
-                    }}
-                    placeholder="תיאור ההוצאה..."
-                    autoFocus
-                    className="w-full bg-ios-gray6 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-ios-blue/30 placeholder:text-ios-gray3 transition-all"
-                  />
-                )}
-
+                {/* Amount + Currency */}
                 <div>
-                  <div className="flex gap-2" dir="ltr">
-                    <div className="flex items-center gap-1 flex-1 bg-ios-gray6 rounded-xl px-4 py-4 focus-within:ring-2 focus-within:ring-ios-blue/30 transition-all">
-                      <span className="text-ios-gray3 text-2xl font-bold shrink-0">
+                  <p className="text-[13px] font-medium text-ios-gray px-4 pb-2">סכום</p>
+                  <div className="ios-card overflow-hidden">
+                    <div className="flex items-center px-4 py-[11px]" dir="ltr">
+                      <span className="text-[28px] font-bold text-ios-gray3 shrink-0 w-6 text-center">
                         {currencySymbol(currency)}
                       </span>
                       <input
                         type="number"
                         inputMode="decimal"
                         value={amount}
-                        onChange={(e) => {
-                          setAmount(e.target.value);
-                          setValidationError('');
-                        }}
-                        placeholder="0"
+                        onChange={(e) => { setAmount(e.target.value); setValidationError(''); }}
+                        placeholder="0.00"
                         autoFocus={!customMode}
                         dir="ltr"
-                        className="w-full bg-transparent text-left text-2xl font-bold text-ios-label placeholder:text-ios-gray3 focus:outline-none"
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') submitExpense();
-                        }}
+                        className="flex-1 text-[28px] font-bold text-ios-label bg-transparent placeholder:text-ios-gray3 focus:outline-none ml-1"
+                        onKeyDown={(e) => { if (e.key === 'Enter') submitExpense(); }}
                       />
                     </div>
-                    <CurrencyToggle
-                      currency={currency}
-                      onChange={setCurrency}
-                    />
-                  </div>
-                  {amount && parseFloat(amount) > 0 && (
-                    <div className="text-xs text-ios-gray mt-1.5 text-left" dir="ltr">
-                      {formatConversion(parseFloat(amount), currency)}
+                    {amount && parseFloat(amount) > 0 && (
+                      <div className="px-4 pb-2 text-[13px] text-ios-gray" dir="ltr">
+                        {formatConversion(parseFloat(amount), currency, liveRates)}
+                      </div>
+                    )}
+                    <div className="border-t border-ios-separator px-4 py-2">
+                      <div className="flex bg-ios-gray5 rounded-[9px] p-[2px]">
+                        {CURRENCY_ORDER.map((c) => (
+                          <button
+                            key={c}
+                            onClick={() => setCurrency(c)}
+                            className={`flex-1 py-[6px] rounded-[7px] text-[13px] font-semibold text-center transition-all ${
+                              currency === c
+                                ? 'bg-ios-card text-ios-label shadow-sm'
+                                : 'text-ios-gray'
+                            }`}
+                          >
+                            {c}
+                          </button>
+                        ))}
+                      </div>
                     </div>
-                  )}
+                  </div>
                 </div>
 
+                {/* Paid by */}
                 <div>
-                  <p className="text-xs font-semibold text-ios-gray mb-2">
-                    מי שילם?
-                  </p>
-                  <div className="flex flex-wrap gap-2">
+                  <p className="text-[13px] font-medium text-ios-gray px-4 pb-2">מי שילם?</p>
+                  <div className="ios-card overflow-hidden">
                     {trip.people.map((p, idx) => {
                       const selected = paidBy.includes(p.id);
                       return (
                         <button
                           key={p.id}
-                          onClick={() => {
-                            togglePaidBy(p.id);
-                            setValidationError('');
-                          }}
-                          className={`flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-medium transition-all duration-200 ${
-                            selected
-                              ? `bg-gradient-to-l ${AVATAR_COLORS[idx % AVATAR_COLORS.length]} text-white shadow-sm scale-105`
-                              : 'bg-ios-gray5 text-ios-label3 active:bg-ios-gray4 active:scale-95'
+                          onClick={() => { togglePaidBy(p.id); setValidationError(''); }}
+                          className={`w-full flex items-center gap-3 px-4 py-[11px] active:bg-ios-gray6 transition-colors ${
+                            idx > 0 ? 'border-t border-ios-separator' : ''
                           }`}
                         >
-                          <div
-                            className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${
-                              selected
-                                ? 'bg-white/25 text-white'
-                                : `bg-gradient-to-br ${AVATAR_COLORS[idx % AVATAR_COLORS.length]} text-white`
-                            }`}
-                          >
+                          <div className={`w-7 h-7 rounded-full bg-gradient-to-br ${AVATAR_COLORS[idx % AVATAR_COLORS.length]} flex items-center justify-center text-white text-[11px] font-bold shrink-0`}>
                             {p.name.charAt(0)}
                           </div>
-                          {p.name}
+                          <span className="text-[17px] text-ios-label flex-1 text-right">{p.name}</span>
+                          {selected && <Check size={18} className="text-ios-blue shrink-0" strokeWidth={2.5} />}
                         </button>
                       );
                     })}
                   </div>
                 </div>
 
+                {/* Split between */}
                 <div>
-                  <p className="text-xs font-semibold text-ios-gray mb-2">
-                    לחלק בין:
-                  </p>
-                  <div className="flex flex-wrap gap-2">
+                  <div className="flex items-center justify-between px-4 pb-2">
+                    <p className="text-[13px] font-medium text-ios-gray">לחלק בין</p>
+                    {splitBetween.length < trip.people.length && (
+                      <button
+                        onClick={() => setSplitBetween(trip.people.map((p) => p.id))}
+                        className="text-[13px] text-ios-blue font-medium active:opacity-60 transition-opacity"
+                      >
+                        בחר הכל
+                      </button>
+                    )}
+                  </div>
+                  <div className="ios-card overflow-hidden">
                     {trip.people.map((p, idx) => {
                       const selected = splitBetween.includes(p.id);
                       return (
                         <button
                           key={p.id}
-                          onClick={() => {
-                            toggleSplit(p.id);
-                            setValidationError('');
-                          }}
-                          className={`flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-medium transition-all duration-200 ${
-                            selected
-                              ? `bg-gradient-to-l ${AVATAR_COLORS[idx % AVATAR_COLORS.length]} text-white shadow-sm scale-105`
-                              : 'bg-ios-gray5 text-ios-label3 active:bg-ios-gray4 active:scale-95'
+                          onClick={() => { toggleSplit(p.id); setValidationError(''); }}
+                          className={`w-full flex items-center gap-3 px-4 py-[11px] active:bg-ios-gray6 transition-colors ${
+                            idx > 0 ? 'border-t border-ios-separator' : ''
                           }`}
                         >
-                          <div
-                            className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${
-                              selected
-                                ? 'bg-white/25 text-white'
-                                : `bg-gradient-to-br ${AVATAR_COLORS[idx % AVATAR_COLORS.length]} text-white`
-                            }`}
-                          >
+                          <div className={`w-7 h-7 rounded-full bg-gradient-to-br ${AVATAR_COLORS[idx % AVATAR_COLORS.length]} flex items-center justify-center text-white text-[11px] font-bold shrink-0`}>
                             {p.name.charAt(0)}
                           </div>
-                          {p.name}
+                          <span className="text-[17px] text-ios-label flex-1 text-right">{p.name}</span>
+                          {selected && <Check size={18} className="text-ios-blue shrink-0" strokeWidth={2.5} />}
                         </button>
                       );
                     })}
-                    {splitBetween.length < trip.people.length && (
-                      <button
-                        onClick={() =>
-                          setSplitBetween(trip.people.map((p) => p.id))
-                        }
-                        className="px-4 py-2.5 rounded-full text-sm font-medium text-ios-blue bg-ios-blue/10 active:bg-ios-blue/20 active:scale-95 transition-all"
-                      >
-                        כולם
-                      </button>
-                    )}
                   </div>
+                  {amount && splitBetween.length > 0 && parseFloat(amount) > 0 && (
+                    <p className="text-[13px] text-ios-gray px-4 pt-2">
+                      לאדם:{' '}
+                      <span className="text-ios-label font-medium" dir="ltr">
+                        {currencySymbol(currency)}{Math.round(parseFloat(amount) / splitBetween.length).toLocaleString()}
+                      </span>
+                    </p>
+                  )}
                 </div>
 
-                {amount &&
-                  splitBetween.length > 0 &&
-                  parseFloat(amount) > 0 && (
-                    <div className="bg-ios-gray6 rounded-xl px-4 py-2.5 text-center animate-fade-in">
-                      <span className="text-sm text-ios-gray">
-                        <span
-                          className="font-bold text-ios-label"
-                          dir="ltr"
-                        >
-                          {currencySymbol(currency)}
-                          {Math.round(
-                            parseFloat(amount) / splitBetween.length
-                          ).toLocaleString()}
-                        </span>{' '}
-                        לאדם
-                      </span>
-                    </div>
-                  )}
-
                 {validationError && (
-                  <div className="text-center text-sm text-ios-red font-medium animate-scale-in">
+                  <p className="text-center text-[15px] text-ios-red font-medium animate-scale-in">
                     {validationError}
-                  </div>
+                  </p>
                 )}
               </div>
             )}
           </div>
 
+          {/* iOS-style bottom button */}
           {showForm && (
-            <div className="shrink-0 px-5 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] border-t border-ios-separator bg-ios-bg">
+            <div className="shrink-0 px-4 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] bg-ios-bg">
               <button
-                onClick={() => {
-                  if (submitExpense()) setShowAddModal(false);
-                }}
-                className="w-full bg-ios-blue text-white font-semibold py-3.5 rounded-xl active:opacity-80 transition-opacity"
+                onClick={() => { if (submitExpense()) setShowAddModal(false); }}
+                className="w-full bg-ios-blue text-white text-[17px] font-semibold py-[14px] rounded-[14px] active:opacity-80 transition-opacity"
               >
-                הוסף{' '}
-                {activeTemplate
-                  ? `"${activeTemplate.label}"`
-                  : desc.trim()
-                    ? `"${desc.trim()}"`
-                    : 'הוצאה'}
+                הוסף
               </button>
             </div>
           )}
         </div>,
         document.body
       )}
-    </div>
-  );
-}
-
-function CurrencyToggle({
-  currency,
-  onChange,
-}: {
-  currency: Currency;
-  onChange: (c: Currency) => void;
-}) {
-  return (
-    <div className="flex flex-col gap-1 justify-center">
-      {CURRENCY_ORDER.map((c) => (
-        <button
-          key={c}
-          onClick={() => onChange(c)}
-          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
-            currency === c
-              ? 'bg-sky-500 text-white shadow-sm'
-              : 'bg-ios-gray5 text-ios-label4 active:bg-ios-gray4'
-          }`}
-        >
-          {c} {currencySymbol(c)}
-        </button>
-      ))}
     </div>
   );
 }
@@ -1325,9 +1321,11 @@ function MiniCurrencyToggle({
 function PersonalFixedSummary({
   trip,
   fixedType,
+  rates,
 }: {
   trip: Trip;
   fixedType: string;
+  rates: Rates;
 }) {
   const filled = trip.expenses.filter((e) => e.fixedType === fixedType);
   const total = trip.people.length;
@@ -1339,7 +1337,7 @@ function PersonalFixedSummary({
     );
 
   const sumEur = filled.reduce(
-    (s, e) => s + toEur(e.amount, e.currency ?? 'ILS'),
+    (s, e) => s + toEur(e.amount, e.currency ?? 'ILS', getExpRates(e, rates)),
     0
   );
   return (

@@ -4,6 +4,7 @@ import { TabNavigation } from './TabNavigation';
 import { TripInfoTab } from './tabs/TripInfoTab';
 import { PackingTab } from './tabs/PackingTab';
 import { ExpensesTab } from './tabs/ExpensesTab';
+import { ResortTab } from './tabs/ResortTab';
 import { ChevronRight, Share2, Sun, Moon } from 'lucide-react';
 import { useTheme } from '../useTheme';
 
@@ -14,10 +15,21 @@ interface Props {
   onBack: () => void;
 }
 
+function getStoredTab(tripId: string): TabId {
+  const stored = localStorage.getItem(`tab:${tripId}`);
+  if (stored === 'trip' || stored === 'packing' || stored === 'expenses' || stored === 'resort') return stored;
+  return 'trip';
+}
+
 export function TripView({ trip, session, onUpdate, onBack }: Props) {
-  const [activeTab, setActiveTab] = useState<TabId>('trip');
+  const [activeTab, setActiveTab] = useState<TabId>(() => getStoredTab(trip.id));
   const [copied, setCopied] = useState(false);
   const { theme, toggle: toggleTheme } = useTheme();
+
+  function changeTab(tab: TabId) {
+    setActiveTab(tab);
+    localStorage.setItem(`tab:${trip.id}`, tab);
+  }
 
   function shareLink() {
     const url = `${window.location.origin}${window.location.pathname}#${trip.id}`;
@@ -72,9 +84,10 @@ export function TripView({ trip, session, onUpdate, onBack }: Props) {
         {activeTab === 'expenses' && (
           <ExpensesTab trip={trip} session={session} onUpdate={onUpdate} />
         )}
+        {activeTab === 'resort' && <ResortTab />}
       </main>
 
-      <TabNavigation active={activeTab} onChange={setActiveTab} />
+      <TabNavigation active={activeTab} onChange={changeTab} />
     </div>
   );
 }

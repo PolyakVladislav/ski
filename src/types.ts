@@ -23,6 +23,8 @@ export interface Expense {
   splitBetween: string[];
   date: string;
   fixedType?: string;
+  rateEurIls?: number;
+  rateUsdIls?: number;
 }
 
 export interface Trip {
@@ -35,7 +37,7 @@ export interface Trip {
   expenses: Expense[];
 }
 
-export type TabId = 'trip' | 'packing' | 'expenses';
+export type TabId = 'trip' | 'packing' | 'expenses' | 'resort';
 
 export interface UserSession {
   phone: string;
