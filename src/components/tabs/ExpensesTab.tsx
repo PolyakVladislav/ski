@@ -203,6 +203,18 @@ function fmtUsd(n: number): string {
   return `$${Math.round(n).toLocaleString()}`;
 }
 
+function fmtAmount(n: number, currency: Currency): string {
+  if (currency === 'EUR') return fmtEur(n);
+  if (currency === 'USD') return fmtUsd(n);
+  return fmtIls(n);
+}
+
+function fmtSecondary(amount: number, currency: Currency, r: Rates): string {
+  const eur = toEur(amount, currency, r);
+  if (currency === 'EUR') return fmtIls(eur * r.eurIls);
+  return fmtEur(eur);
+}
+
 function formatConversion(amount: number, from: Currency, r: Rates): string {
   const eur = toEur(amount, from, r);
   const ils = toIls(amount, from, r);
@@ -256,8 +268,15 @@ export function ExpensesTab({ trip, session, onUpdate }: Props) {
     0
   );
   const totalIls = totalEur * liveRates.eurIls;
-  const perPersonEur =
-    trip.people.length > 0 ? totalEur / trip.people.length : 0;
+
+  const me = trip.people.find((p) => p.phone === session.phone);
+  const myEur = me
+    ? trip.expenses.reduce((s, e) => {
+        if (!e.splitBetween?.includes(me.id)) return s;
+        const eurVal = toEur(e.amount, e.currency ?? 'ILS', getExpRates(e, liveRates));
+        return s + eurVal / e.splitBetween.length;
+      }, 0)
+    : 0;
 
   const debts = calculateDebts(trip, liveRates);
   const showForm = activeTemplate !== null || customMode;
@@ -485,10 +504,6 @@ export function ExpensesTab({ trip, session, onUpdate }: Props) {
   const fixedExpenses = trip.expenses.filter((e) => e.fixedType);
   const purchaseExpenses = trip.expenses.filter((e) => !e.fixedType);
 
-  const fixedTotalEur = fixedExpenses.reduce(
-    (s, e) => s + toEur(e.amount, e.currency ?? 'ILS', getExpRates(e, liveRates)),
-    0
-  );
   const purchaseTotalEur = purchaseExpenses.reduce(
     (s, e) => s + toEur(e.amount, e.currency ?? 'ILS', getExpRates(e, liveRates)),
     0
@@ -509,12 +524,12 @@ export function ExpensesTab({ trip, session, onUpdate }: Props) {
         </div>
         <div className="ios-card p-4 text-center animate-fade-in-up stagger-1">
           <div className="text-2xl font-bold text-ios-blue" dir="ltr">
-            {fmtEur(perPersonEur)}
+            {fmtEur(myEur)}
           </div>
           <div className="text-xs text-ios-gray3 mt-0.5" dir="ltr">
-            {fmtIls(perPersonEur * liveRates.eurIls)}
+            {fmtIls(myEur * liveRates.eurIls)}
           </div>
-          <div className="text-xs text-ios-gray mt-1">ממוצע לאדם</div>
+          <div className="text-xs text-ios-gray mt-1">ההוצאות שלי</div>
         </div>
       </div>
 
@@ -529,11 +544,8 @@ export function ExpensesTab({ trip, session, onUpdate }: Props) {
             showFixedCosts ? 'mb-3' : 'ios-card'
           }`}
         >
-          <h3 className={`text-sm font-semibold flex items-center gap-2 ${showFixedCosts ? 'text-ios-gray' : 'text-ios-label'}`}>
+          <h3 className={`text-sm font-semibold ${showFixedCosts ? 'text-ios-gray' : 'text-ios-label'}`}>
             עלויות הטיול
-            <span className="text-ios-gray3 font-normal" dir="ltr">
-              {fmtEur(fixedTotalEur)}
-            </span>
           </h3>
           <div
             className={`transition-transform duration-200 ${
@@ -578,14 +590,10 @@ export function ExpensesTab({ trip, session, onUpdate }: Props) {
                     {hasSaved ? (
                       <div className="text-left">
                         <div className="font-bold text-ios-label text-sm" dir="ltr">
-                          {existing!.currency === 'EUR'
-                            ? fmtEur(existing!.amount)
-                            : fmtIls(existing!.amount)}
+                          {fmtAmount(existing!.amount, existing!.currency ?? 'ILS')}
                         </div>
                         <div className="text-xs text-ios-gray" dir="ltr">
-                          {existing!.currency === 'EUR'
-                            ? fmtIls(toIls(existing!.amount, 'EUR', getExpRates(existing!, liveRates)))
-                            : fmtEur(toEur(existing!.amount, 'ILS', getExpRates(existing!, liveRates)))}
+                          {fmtSecondary(existing!.amount, existing!.currency ?? 'ILS', getExpRates(existing!, liveRates))}
                         </div>
                       </div>
                     ) : (
@@ -732,17 +740,13 @@ export function ExpensesTab({ trip, session, onUpdate }: Props) {
                                   className="font-bold text-ios-label text-sm"
                                   dir="ltr"
                                 >
-                                  {existing!.currency === 'EUR'
-                                    ? fmtEur(existing!.amount)
-                                    : fmtIls(existing!.amount)}
+                                  {fmtAmount(existing!.amount, existing!.currency ?? 'ILS')}
                                 </span>
                                 <span
                                   className="text-xs text-ios-gray block"
                                   dir="ltr"
                                 >
-                                  {existing!.currency === 'EUR'
-                                    ? fmtIls(toIls(existing!.amount, 'EUR', getExpRates(existing!, liveRates)))
-                                    : fmtEur(toEur(existing!.amount, 'ILS', getExpRates(existing!, liveRates)))}
+                                  {fmtSecondary(existing!.amount, existing!.currency ?? 'ILS', getExpRates(existing!, liveRates))}
                                 </span>
                               </div>
                               <button
@@ -1293,7 +1297,6 @@ function MiniCurrencyToggle({
 function PersonalFixedSummary({
   trip,
   fixedType,
-  rates,
 }: {
   trip: Trip;
   fixedType: string;
@@ -1301,25 +1304,9 @@ function PersonalFixedSummary({
 }) {
   const filled = trip.expenses.filter((e) => e.fixedType === fixedType);
   const total = trip.people.length;
-  if (filled.length === 0)
-    return (
-      <span className="text-xs text-ios-gray3" dir="ltr">
-        0/{total}
-      </span>
-    );
-
-  const sumEur = filled.reduce(
-    (s, e) => s + toEur(e.amount, e.currency ?? 'ILS', getExpRates(e, rates)),
-    0
-  );
   return (
-    <div className="text-left">
-      <span className="text-xs font-bold text-ios-label2" dir="ltr">
-        {fmtEur(sumEur)}
-      </span>
-      <span className="text-xs text-ios-gray3 block" dir="ltr">
-        {filled.length}/{total}
-      </span>
-    </div>
+    <span className="text-xs text-ios-gray3" dir="ltr">
+      {filled.length}/{total}
+    </span>
   );
 }

@@ -17,6 +17,7 @@ export function PackingTab({ trip, session, onUpdate }: Props) {
   const [viewMode, setViewMode] = useState<ViewMode>('mine');
   const [newItemName, setNewItemName] = useState('');
   const [newItemCategory, setNewItemCategory] = useState('');
+  const [newCategoryName, setNewCategoryName] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [addError, setAddError] = useState('');
   const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(
@@ -79,8 +80,8 @@ export function PackingTab({ trip, session, onUpdate }: Props) {
 
   function addItem() {
     const name = newItemName.trim();
-    const category = newItemCategory.trim();
-    if (!category || category === '__new__') {
+    const category = newItemCategory === '__new__' ? newCategoryName.trim() : newItemCategory.trim();
+    if (!category) {
       setAddError('בחר קטגוריה');
       return;
     }
@@ -99,6 +100,7 @@ export function PackingTab({ trip, session, onUpdate }: Props) {
     onUpdate({ ...trip, packingItems: [...trip.packingItems, newItem] });
     setNewItemName('');
     setNewItemCategory('');
+    setNewCategoryName('');
     setShowForm(false);
     setAddError('');
   }
@@ -334,7 +336,7 @@ export function PackingTab({ trip, session, onUpdate }: Props) {
 
       {/* Floating Add Button */}
       <button
-        onClick={() => { setShowForm(true); setAddError(''); setNewItemName(''); setNewItemCategory(''); }}
+        onClick={() => { setShowForm(true); setAddError(''); setNewItemName(''); setNewItemCategory(''); setNewCategoryName(''); }}
         className="fixed z-40 left-5 w-14 h-14 bg-ios-blue text-white rounded-full shadow-lg shadow-ios-blue/30 flex items-center justify-center active:scale-90 transition-transform fab-position"
       >
         <Plus size={28} strokeWidth={2.5} />
@@ -392,9 +394,10 @@ export function PackingTab({ trip, session, onUpdate }: Props) {
                   <label className="text-[13px] font-medium text-ios-gray block mb-1.5">שם קטגוריה חדשה</label>
                   <input
                     type="text"
+                    value={newCategoryName}
                     placeholder="שם הקטגוריה..."
                     autoFocus
-                    onChange={(e) => setNewItemCategory(e.target.value)}
+                    onChange={(e) => { setNewCategoryName(e.target.value); setAddError(''); }}
                     className="w-full bg-ios-gray6 rounded-xl px-4 py-3.5 focus:outline-none focus:ring-2 focus:ring-ios-blue/30 placeholder:text-ios-gray3 text-[15px]"
                   />
                 </div>
