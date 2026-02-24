@@ -501,7 +501,6 @@ export function ExpensesTab({ trip, session, onUpdate }: Props) {
     );
   }
 
-  const fixedExpenses = trip.expenses.filter((e) => e.fixedType);
   const purchaseExpenses = trip.expenses.filter((e) => !e.fixedType);
 
   const purchaseTotalEur = purchaseExpenses.reduce(
